@@ -1,0 +1,44 @@
+{
+  "rewrites": [
+    { "source": "/api/chat", "destination": "/api/chat.js" },
+    { "source": "/api/feedback", "destination": "/api/feedback.js" },
+    { "source": "/api/general-feedback", "destination": "/api/general-feedback.js" },
+    { "source": "/api/admin-login", "destination": "/api/admin-login.js" },
+    { "source": "/api/admin-logout", "destination": "/api/admin-logout.js" },
+    { "source": "/api/admin-stats", "destination": "/api/admin-stats.js" },
+    { "source": "/api/cron-scrape", "destination": "/api/cron-scrape.js" },
+    {
+      "source": "/((?!api/|assets/|favicon\\.ico|manifest\\.json|robots\\.txt|sitemap\\.xml).*)",
+      "destination": "/index"
+    }
+  ],
+  "headers": [
+    {
+      "comment": "Las páginas reciben sus cabeceras desde los routeRules de Nitro (vite.config.ts). Este bloque cubre solo /api/*, servido en Vercel por funciones que no pasan por src/server.ts.",
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        { "key": "Cache-Control", "value": "no-store, max-age=0" },
+        {
+          "key": "Strict-Transport-Security",
+          "value": "max-age=31536000; includeSubDomains"
+        }
+      ]
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron-scrape",
+      "schedule": "0 8 * * *"
+    }
+  ],
+  "functions": {
+    "api/cron-scrape.js": {
+      "maxDuration": 60
+    },
+    "api/chat.js": {
+      "maxDuration": 60
+    }
+  }
+}

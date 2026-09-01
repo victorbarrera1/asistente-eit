@@ -1,0 +1,19 @@
+image: dokku/ci-docker-image
+
+stages:
+  - deploy
+
+variables:
+  GIT_DEPTH: 0
+
+deploy:
+  stage: deploy
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+  variables:
+    GIT_REMOTE_URL: ssh://dokku@${DOKKU_HOST:-dokku.internal}:22/asistente-eit
+  script: 
+    - dokku-deploy
+    - ssh -p 22 dokku@${DOKKU_HOST:-dokku.internal} ps:restart asistente-eit
+  after_script: 
+    - dokku-unlock
