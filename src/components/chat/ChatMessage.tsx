@@ -78,6 +78,44 @@ async function copyToClipboard(text: string): Promise<boolean> {
   }
 }
 
+function CopyButton({ copied, onCopy }: { copied: boolean; onCopy: () => void }) {
+  return (
+    <div className="relative inline-flex items-center">
+      {/* Pop-up flotante sobre el botón */}
+      {copied && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="absolute bottom-full right-0 mb-2 z-30 flex items-center gap-1.5 whitespace-nowrap rounded-md bg-slate-900 px-2.5 py-1 text-[11px] font-semibold text-white shadow-xl dark:bg-slate-100 dark:text-slate-900 pointer-events-none transition-all duration-200 animate-in fade-in zoom-in-95"
+        >
+          <Check className="h-3 w-3 text-emerald-400 dark:text-emerald-600 stroke-[3]" />
+          <span>¡Copiado con éxito!</span>
+          {/* Flecha indicadora */}
+          <span className="absolute -bottom-1 right-2.5 h-2 w-2 rotate-45 bg-slate-900 dark:bg-slate-100" />
+        </div>
+      )}
+
+      <button
+        type="button"
+        onClick={onCopy}
+        className={`flex h-7 w-7 items-center justify-center rounded-lg border transition-all duration-300 ease-out hover:scale-105 active:scale-90 cursor-pointer ${
+          copied
+            ? "border-emerald-300 bg-emerald-50 text-emerald-600"
+            : "border-udp-line bg-udp-surface text-muted-foreground hover:border-sky-200 hover:bg-sky-50 hover:text-sky-600"
+        }`}
+        title={copied ? "¡Copiado con éxito!" : "Copiar respuesta"}
+        aria-label="Copiar respuesta"
+      >
+        {copied ? (
+          <Check className="h-3.5 w-3.5 text-emerald-600" />
+        ) : (
+          <Copy className="h-3.5 w-3.5" />
+        )}
+      </button>
+    </div>
+  );
+}
+
 export function ChatMessage({
   message: m,
   index: i,
@@ -109,6 +147,20 @@ export function ChatMessage({
         m.role === "user" ? "items-end self-end" : "items-start self-start"
       }`}
     >
+      {/* Toast flotante en pantalla */}
+      {copied && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 rounded-full bg-slate-900/95 dark:bg-slate-100/95 px-4 py-2 text-xs font-semibold text-white dark:text-slate-900 shadow-2xl backdrop-blur-md pointer-events-none border border-white/10 dark:border-black/10 transition-all duration-300 animate-in fade-in slide-in-from-bottom-3"
+        >
+          <div className="flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 text-white dark:bg-emerald-600">
+            <Check className="h-2.5 w-2.5 stroke-[3]" />
+          </div>
+          <span>¡Copiado con éxito!</span>
+        </div>
+      )}
+
       <div className="flex items-center gap-1.5 px-1">
         <span className="text-[11px] font-medium tracking-wide text-muted-foreground">
           {m.role === "user" ? "Tú" : "Asistente UDP"}
@@ -151,24 +203,7 @@ export function ChatMessage({
                         ¿Fue útil esta respuesta?
                       </span>
                       <div className="flex items-center gap-1.5">
-                        {/* Copy button */}
-                        <button
-                          type="button"
-                          onClick={() => void handleCopy()}
-                          className={`flex h-7 w-7 items-center justify-center rounded-lg border transition-all duration-300 ease-out hover:scale-105 active:scale-90 cursor-pointer ${
-                            copied
-                              ? "border-emerald-300 bg-emerald-50 text-emerald-600"
-                              : "border-udp-line bg-udp-surface text-muted-foreground hover:border-sky-200 hover:bg-sky-50 hover:text-sky-600"
-                          }`}
-                          title={copied ? "¡Copiado!" : "Copiar respuesta"}
-                          aria-label="Copiar respuesta"
-                        >
-                          {copied ? (
-                            <Check className="h-3.5 w-3.5 text-emerald-600" />
-                          ) : (
-                            <Copy className="h-3.5 w-3.5" />
-                          )}
-                        </button>
+                        <CopyButton copied={copied} onCopy={() => void handleCopy()} />
                         <button
                           type="button"
                           onClick={() => onThumbsUp(i)}
@@ -237,24 +272,8 @@ export function ChatMessage({
                           : "Gracias por informarnos. Analizaremos esta consulta para mejorar."}
                       </span>
                     </div>
-                    {/* Copy button available after feedback too */}
-                    <button
-                      type="button"
-                      onClick={() => void handleCopy()}
-                      className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg border transition-all duration-300 ease-out hover:scale-105 active:scale-90 cursor-pointer ${
-                        copied
-                          ? "border-emerald-300 bg-emerald-50 text-emerald-600"
-                          : "border-udp-line bg-udp-surface text-muted-foreground hover:border-sky-200 hover:bg-sky-50 hover:text-sky-600"
-                      }`}
-                      title={copied ? "¡Copiado!" : "Copiar respuesta"}
-                      aria-label="Copiar respuesta"
-                    >
-                      {copied ? (
-                        <Check className="h-3.5 w-3.5 text-emerald-600" />
-                      ) : (
-                        <Copy className="h-3.5 w-3.5" />
-                      )}
-                    </button>
+                    {/* Botón de copiar disponible también tras dar feedback */}
+                    <CopyButton copied={copied} onCopy={() => void handleCopy()} />
                   </div>
                 )}
               </div>
