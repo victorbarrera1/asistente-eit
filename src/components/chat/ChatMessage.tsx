@@ -29,6 +29,55 @@ function formatTime(ts?: number): string {
   return d.toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" });
 }
 
+/**
+ * Copia texto al portapapeles de forma universal y robusta.
+ * Funciona en contextos seguros (HTTPS, localhost) y en entornos no seguros (HTTP por IP, iframes).
+ */
+async function copyToClipboard(text: string): Promise<boolean> {
+  if (!text) return false;
+
+  // 1. Intento con Clipboard API nativa (navegadores modernos con HTTPS o localhost)
+  if (
+    typeof navigator !== "undefined" &&
+    navigator.clipboard &&
+    typeof navigator.clipboard.writeText === "function"
+  ) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      // Si falla por contexto no seguro, permisos o iframe restringido, usamos el fallback
+    }
+  }
+
+  // 2. Fallback universal con elemento textarea temporal (funciona en HTTP de red local y Safari)
+  try {
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    textArea.style.position = "fixed";
+    textArea.style.top = "0";
+    textArea.style.left = "0";
+    textArea.style.width = "2em";
+    textArea.style.height = "2em";
+    textArea.style.padding = "0";
+    textArea.style.border = "none";
+    textArea.style.outline = "none";
+    textArea.style.boxShadow = "none";
+    textArea.style.background = "transparent";
+    textArea.setAttribute("readonly", "");
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    textArea.setSelectionRange(0, text.length);
+    const successful = document.execCommand("copy");
+    document.body.removeChild(textArea);
+    return successful;
+  } catch (err) {
+    console.error("Error al copiar texto:", err);
+    return false;
+  }
+}
+
 export function ChatMessage({
   message: m,
   index: i,
@@ -45,12 +94,10 @@ export function ChatMessage({
   const [copied, setCopied] = useState(false);
 
   async function handleCopy() {
-    try {
-      await navigator.clipboard.writeText(m.content);
+    const ok = await copyToClipboard(m.content);
+    if (ok) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // clipboard API not available
     }
   }
 
@@ -106,24 +153,33 @@ export function ChatMessage({
                       <div className="flex items-center gap-1.5">
                         {/* Copy button */}
                         <button
+                          type="button"
                           onClick={() => void handleCopy()}
-                          className="flex h-7 w-7 items-center justify-center rounded-lg border border-udp-line bg-udp-surface text-muted-foreground hover:border-sky-200 hover:bg-sky-50 hover:text-sky-600 transition-all duration-300 ease-out hover:scale-105 active:scale-90 cursor-pointer"
-                          title="Copiar respuesta"
+                          className={`flex h-7 w-7 items-center justify-center rounded-lg border transition-all duration-300 ease-out hover:scale-105 active:scale-90 cursor-pointer ${
+                            copied
+                              ? "border-emerald-300 bg-emerald-50 text-emerald-600"
+                              : "border-udp-line bg-udp-surface text-muted-foreground hover:border-sky-200 hover:bg-sky-50 hover:text-sky-600"
+                          }`}
+                          title={copied ? "¡Copiado!" : "Copiar respuesta"}
+                          aria-label="Copiar respuesta"
                         >
                           {copied ? (
-                            <Check className="h-3.5 w-3.5 text-emerald-500" />
+                            <Check className="h-3.5 w-3.5 text-emerald-600" />
                           ) : (
                             <Copy className="h-3.5 w-3.5" />
                           )}
                         </button>
                         <button
+                          type="button"
                           onClick={() => onThumbsUp(i)}
                           className="flex h-7 w-7 items-center justify-center rounded-lg border border-udp-line bg-udp-surface text-muted-foreground hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-600 transition-all duration-300 ease-out hover:scale-105 active:scale-90 cursor-pointer"
                           title="Sí, fue útil"
+                          aria-label="Sí, fue útil"
                         >
                           <ThumbsUp className="h-3.5 w-3.5" />
                         </button>
                         <button
+                          type="button"
                           onClick={() => onThumbsDown(i)}
                           className={`flex h-7 w-7 items-center justify-center rounded-lg border transition-all duration-300 ease-out hover:scale-105 active:scale-90 cursor-pointer ${
                             m.showCommentInput
@@ -131,6 +187,7 @@ export function ChatMessage({
                               : "border-udp-line bg-udp-surface text-muted-foreground hover:border-udp-red/20 hover:bg-udp-red/5 hover:text-udp-red"
                           }`}
                           title="No, tiene errores o falta información"
+                          aria-label="No, tiene errores o falta información"
                         >
                           <ThumbsDown className="h-3.5 w-3.5" />
                         </button>
@@ -147,12 +204,14 @@ export function ChatMessage({
                         />
                         <div className="flex justify-end gap-1.5">
                           <button
+                            type="button"
                             onClick={() => onCancelComment(i)}
                             className="rounded-lg px-2.5 py-1 text-[11px] font-medium border border-udp-line bg-udp-surface text-muted-foreground hover:bg-udp-soft transition-all duration-300 ease-out active:scale-95 cursor-pointer"
                           >
                             Cancelar
                           </button>
                           <button
+                            type="button"
                             onClick={() => {
                               const textEl = document.getElementById(
                                 `comment-${i}`,
@@ -169,13 +228,33 @@ export function ChatMessage({
                     )}
                   </div>
                 ) : (
-                  <div className="mt-3.5 border-t border-udp-line/50 pt-2.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                    <Check className="h-3.5 w-3.5 text-emerald-500" />
-                    <span>
-                      {m.feedback === "positive"
-                        ? "¡Gracias por calificar positivamente esta respuesta!"
-                        : "Gracias por informarnos. Analizaremos esta consulta para mejorar."}
-                    </span>
+                  <div className="mt-3.5 border-t border-udp-line/50 pt-2.5 flex items-center justify-between text-[11px] text-muted-foreground">
+                    <div className="flex items-center gap-1.5">
+                      <Check className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
+                      <span>
+                        {m.feedback === "positive"
+                          ? "¡Gracias por calificar positivamente esta respuesta!"
+                          : "Gracias por informarnos. Analizaremos esta consulta para mejorar."}
+                      </span>
+                    </div>
+                    {/* Copy button available after feedback too */}
+                    <button
+                      type="button"
+                      onClick={() => void handleCopy()}
+                      className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg border transition-all duration-300 ease-out hover:scale-105 active:scale-90 cursor-pointer ${
+                        copied
+                          ? "border-emerald-300 bg-emerald-50 text-emerald-600"
+                          : "border-udp-line bg-udp-surface text-muted-foreground hover:border-sky-200 hover:bg-sky-50 hover:text-sky-600"
+                      }`}
+                      title={copied ? "¡Copiado!" : "Copiar respuesta"}
+                      aria-label="Copiar respuesta"
+                    >
+                      {copied ? (
+                        <Check className="h-3.5 w-3.5 text-emerald-600" />
+                      ) : (
+                        <Copy className="h-3.5 w-3.5" />
+                      )}
+                    </button>
                   </div>
                 )}
               </div>
