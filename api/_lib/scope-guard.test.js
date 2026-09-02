@@ -47,6 +47,13 @@ describe("detectTaskRequest — pedidos de tutoría técnica", () => {
     "explicame la recursion en java",
     "como se implementa un quicksort en python",
     "tutorial de sql paso a paso",
+    "ejemplo de tarea en java",
+    "ejemplo de tarea en java que utiliza recursividad",
+    "dame una tarea en java con recursividad",
+    "dame un ejercicio de java",
+    "planteame una tarea en java",
+    "inventa una tarea en java",
+    "crea una tarea en java",
   ];
   for (const q of tutoria) {
     test(`bloquea: "${q}"`, () => assert.equal(detectTaskRequest(q), true));

@@ -106,45 +106,34 @@ const STATIC_INFO_REGEX =
 // Por lo mismo "programa" no está como verbo (es ambiguo con el sustantivo);
 // solo la forma inequívoca "programame".
 const ACTION_VERBS =
-  /\b(resuelve|resuelveme|resolver|hazme|haceme|hazlo|desarrolla|desarrollame|escribe|escribeme|programame|implementa|implementame|codifica|calcula|calculame|demuestra|demuestrame|corrige|corrigeme|completa|completame|redacta|redactame|traduce|traduceme|dame el codigo|dame la solucion|dame la respuesta|necesito el codigo|como se hace este|como resuelvo este|ayudame a resolver|ayudame con mi tarea|ayudame con la tarea|hazme la tarea)\b/;
+  /\b(resuelve|resuelveme|resolver|haz|hazme|haceme|hazlo|hacer|desarrolla|desarrollame|desarrollar|escribe|escribeme|escribir|programame|programar|implementa|implementame|implementar|codifica|codificame|codificar|calcula|calculame|calcular|demuestra|demuestrame|demostrar|corrige|corrigeme|corregir|completa|completame|completar|redacta|redactame|redactar|traduce|traduceme|traducir|crea|creame|crear|genera|generame|generar|inventa|inventame|inventar|plantea|planteame|plantear|propon|proponme|proponer|dame|da|pasa|pasame|dame el codigo|dame codigo|dame la solucion|dame la respuesta|necesito el codigo|necesito codigo|como se hace este|como resuelvo este|ayudame a resolver|ayudame con mi tarea|ayudame con la tarea|hazme la tarea)\b/;
 
 const ACADEMIC_OBJECTS =
   /\b(tarea|tareas|ejercicio|ejercicios|problema|problemas|codigo|programa|script|funcion|algoritmo|consulta sql|query|ensayo|redaccion|integral|derivada|ecuacion|ecuaciones|matriz|matrices|circuito|guia de ejercicios)\b/;
 
-// Lenguajes y ramos: "en Python", "de cálculo". Refuerzan la señal de tarea.
+// Lenguajes y materias técnicas: "en Python", "de cálculo", conceptos como "recursividad".
 const TECHNICAL_SUBJECTS =
-  /\b(python|java|javascript|typescript|c\+\+|c#|sql|html|css|php|ruby|matlab|assembler|verilog|vhdl|calculo|algebra|fisica|estadistica|termodinamica|electromagnetismo)\b/;
+  /\b(python|java|javascript|typescript|c\+\+|c#|sql|html|css|php|ruby|matlab|assembler|verilog|vhdl|calculo|algebra|fisica|estadistica|termodinamica|electromagnetismo|recursividad|recursion|recursiv[oa]s?)\b/;
 
 /**
- * ¿Es un pedido de resolver una tarea?
+ * ¿Es un pedido de resolver una tarea o tutoría técnica?
  *
- * Requiere verbo de acción y, además, objeto académico o materia técnica. La
- * conjunción es a propósito: baja los falsos positivos sobre preguntas legítimas
- * que mencionan un ramo o una tarea sin pedir que se resuelva.
+ * Requiere verbo de acción o enseñanza y, además, objeto académico o materia técnica.
  */
-// Verbos de enseñanza. Combinados con una materia técnica marcan una consulta de
-// tutoría, no de trámite: "dame un ejemplo de recursión en Java", "explícame los
-// punteros en C". El asistente orienta sobre la Escuela, no enseña a programar,
-// así que quedan fuera de alcance sean tarea o curiosidad.
 const EXPLAIN_VERBS =
-  /\b(explica|explicame|explicar|ensena|ensename|ensenar|muestra|muestrame|mostrar|dame un ejemplo|un ejemplo de|ejemplo en|como funciona|como se hace|como se implementa|como se programa|como se escribe|como se declara|como hago un|como creo un|tutorial|paso a paso)\b/;
+  /\b(explica|explicame|explicar|ensena|ensename|ensenar|muestra|muestrame|mostrar|dame un ejemplo|dame ejemplos|(un )?ejemplos? (de|en|con|sobre)|(un )?ejercicios? (de|en|con|sobre)|como funciona|como se hace|como se implementa|como se programa|como se escribe|como se declara|como hago un|como creo un|tutorial|paso a paso)\b/;
 
 export function detectTaskRequest(message) {
   const q = normalize(message);
   if (!q || q.length < 8) return false;
 
-  // Vía 1: pedir que produzca el trabajo.
+  // Vía 1: pedir que produzca, cree, plantee o resuelva el trabajo.
   if (ACTION_VERBS.test(q) && (ACADEMIC_OBJECTS.test(q) || TECHNICAL_SUBJECTS.test(q))) {
     return true;
   }
 
-  // Vía 2: pedir clases de una materia técnica.
-  //
-  // Se agregó porque "dame un ejemplo de recursión en Java" pasaba el filtro:
-  // ningún verbo de la vía 1 aparece, aunque el pedido sea claramente de tutoría.
-  // Exigir la materia técnica es lo que evita atrapar "¿cómo funciona el proceso
-  // de titulación?", que usa el mismo verbo pero es un trámite.
-  if (EXPLAIN_VERBS.test(q) && TECHNICAL_SUBJECTS.test(q)) {
+  // Vía 2: pedir clases, tutoriales o ejemplos de materias técnicas o ejercicios.
+  if (EXPLAIN_VERBS.test(q) && (TECHNICAL_SUBJECTS.test(q) || ACADEMIC_OBJECTS.test(q))) {
     return true;
   }
 
