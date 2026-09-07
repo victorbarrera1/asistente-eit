@@ -381,7 +381,10 @@ export function rerankDocs(docs, query) {
       if (content.includes(t)) keywordScore += 0.1;
     }
 
-    const finalScore = (doc.similarity ?? 0.5) * 0.7 + Math.min(keywordScore, 0.5) * 0.3;
+    // El RPC SQL devuelve `similitud`; conservamos compatibilidad con `similarity`.
+    // `??` preserva cero, que es una similitud válida y no un dato ausente.
+    const similarity = doc.similarity ?? doc.similitud ?? 0.5;
+    const finalScore = similarity * 0.7 + Math.min(keywordScore, 0.5) * 0.3;
     return { ...doc, finalScore };
   });
 
@@ -510,6 +513,7 @@ export async function buildSystemPrompt(lastUserMessage, recentHistory = []) {
       ragContext = buildContext(reranked.slice(0, 3));
     } catch (e) {
       console.error("[RAG] Error al buscar contexto:", e.message);
+      foundDocs = [];
       // Un fallo de búsqueda no es lo mismo que "no hay nada", pero para el modelo
       // la instrucción correcta es la misma: no inventar.
       ragContext = buildContext([]);
@@ -521,6 +525,40 @@ export async function buildSystemPrompt(lastUserMessage, recentHistory = []) {
 }
 
 // ─── Generación en Streaming (Gemini / Ollama) ───────────────────────────────
+
+// Lee hasta el final, incluida la última línea sin salto. Las excepciones del
+// validador NO se confunden con fragmentos JSON: cierran la lectura del proveedor.
+async function* generationLines(body) {
+  if (!body) throw new Error("El proveedor no devolvió un cuerpo de respuesta");
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      buffer += done ? decoder.decode() : decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+      for (const line of lines) {
+        if (line.length > 65536) throw new Error("Registro de generación demasiado grande");
+        yield line;
+      }
+      if (buffer.length > 65536) throw new Error("Registro de generación demasiado grande");
+      if (done) {
+        if (buffer.trim()) yield buffer;
+        break;
+      }
+    }
+  } finally {
+    try { await reader.cancel(); } catch { /* ya cerrado o desconectado */ }
+    reader.releaseLock();
+  }
+}
+
+function parseGenerationJson(text) {
+  try { return JSON.parse(text); }
+  catch { throw new Error("Formato de generación inválido"); }
+}
 
 export async function streamGemini({ messages, systemPrompt, config, onChunk }) {
   const key = config.geminiKey;
@@ -553,33 +591,30 @@ export async function streamGemini({ messages, systemPrompt, config, onChunk }) 
     throw new Error(`Gemini error (${res.status}): ${err.slice(0, 200)}`);
   }
 
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
   let full = "";
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split("\n");
-    buffer = lines.pop() ?? "";
-    for (const line of lines) {
-      if (!line.startsWith("data:")) continue;
-      const jsonStr = line.slice(5).trim();
-      if (!jsonStr || jsonStr === "[DONE]") continue;
-      try {
-        const json = JSON.parse(jsonStr);
-        const t = json.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (t) {
-          full += t;
-          onChunk(t);
-        }
-      } catch {
-        /* chunk parcial */
+  let completed = false;
+  for await (const line of generationLines(res.body)) {
+    if (!line.startsWith("data:")) continue;
+    const jsonStr = line.slice(5).trim();
+    if (!jsonStr || jsonStr === "[DONE]") continue;
+    const json = parseGenerationJson(jsonStr);
+    if (json.error || json.promptFeedback?.blockReason) {
+      throw new Error("El proveedor no pudo completar la respuesta");
+    }
+    const candidate = json.candidates?.[0];
+    for (const part of candidate?.content?.parts ?? []) {
+      if (part.thought) continue;
+      if (typeof part.text === "string" && part.text) {
+        full += part.text;
+        onChunk(part.text);
       }
     }
+    if (candidate?.finishReason) {
+      if (candidate.finishReason !== "STOP") throw new Error("Generación incompleta");
+      completed = true;
+    }
   }
+  if (!completed) throw new Error("Stream de generación interrumpido");
   return full;
 }
 
@@ -636,32 +671,23 @@ export async function streamOllama({ messages, systemPrompt, baseUrl, model, onC
     throw new Error(`Ollama error (HTTP ${res.status}): ${errText}`);
   }
 
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
   let full = "";
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split("\n");
-    buffer = lines.pop() ?? "";
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed) continue;
-      try {
-        const json = JSON.parse(trimmed);
-        const t = json.message?.content;
-        if (t) {
-          full += t;
-          onChunk(t);
-        }
-      } catch {
-        /* fragmento parcial JSON */
-      }
+  let completed = false;
+  for await (const line of generationLines(res.body)) {
+    if (!line.trim()) continue;
+    const json = parseGenerationJson(line);
+    if (json.error) throw new Error("El proveedor no pudo completar la respuesta");
+    const text = json.message?.content;
+    if (typeof text === "string" && text) {
+      full += text;
+      onChunk(text);
+    }
+    if (json.done) {
+      if (json.done_reason && json.done_reason !== "stop") throw new Error("Generación incompleta");
+      completed = true;
     }
   }
+  if (!completed) throw new Error("Stream de generación interrumpido");
   return full;
 }
 

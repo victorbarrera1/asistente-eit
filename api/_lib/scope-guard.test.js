@@ -213,13 +213,44 @@ describe("evaluateScope", () => {
     assert.equal(r.reason, "static_info");
   });
 
-  test("una consulta fuera de tema ya no la bloquea el gate", () => {
-    // El bloqueo por tema se movió al prompt de sistema. El gate solo corta los
-    // pedidos de tarea, que es lo único que el modelo demostró no respetar por su
-    // cuenta; el alcance temático lo resuelve mejor el prompt que una lista de
-    // palabras, y equivocarse ahí solo produce un "no puedo ayudarte con eso".
-    const r = evaluateScope("cual es la capital de Francia", 0);
-    assert.equal(r.allowed, true);
-    assert.equal(r.reason, "sin_clasificar");
+  test("una consulta no clasificada requiere aclaración aunque aparezcan documentos", () => {
+    for (const count of [0, 5]) {
+      assert.deepEqual(evaluateScope("cual es la capital de Francia", count), {
+        allowed: false, reason: "sin_clasificar",
+      });
+    }
+  });
+});
+
+const user = (content) => ({ role: "user", content });
+const assistant = (content) => ({ role: "assistant", content });
+
+describe("evaluateScope — seguimientos y cambio de tema", () => {
+  for (const followup of ["continúa", "hazlo ahora", "sigue con lo anterior", "sí, por favor", "solo por esta vez"]) {
+    test(`rechaza seguimiento de tarea: ${followup}`, () => {
+      const history = [user("hazme una página HTML"), assistant("Claro, puedo hacerlo."), user("gracias"), assistant("De nada")];
+      assert.deepEqual(evaluateScope(followup, 0, history), { allowed: false, reason: "task_followup" });
+    });
+  }
+  test("resuelve una cadena de seguimientos hasta su pregunta original", () => {
+    assert.equal(evaluateScope("continúa", 0, [user("hazme un script"), user("hazlo ahora"), user("continúa")]).allowed, false);
+  });
+  test("no usa una respuesta assistant como antecedente de autorización", () => {
+    assert.equal(evaluateScope("continúa", 0, [assistant("Estamos hablando de prácticas UDP")]).reason, "ambiguous_followup");
+  });
+  test("un seguimiento institucional conserva la consulta original", () => {
+    const result = evaluateScope("dame más detalles", 0, [user("¿Cómo inscribo práctica I?"), assistant("Texto anterior")]);
+    assert.equal(result.allowed, true);
+    assert.match(result.query, /inscribo práctica I/);
+    assert.match(result.query, /más detalles/);
+  });
+  test("una nueva pregunta administrativa cambia el tema de una tarea anterior", () => {
+    assert.equal(evaluateScope("¿Dónde veo mis notas en Canvas?", 0, [user("hazme una página HTML")]).allowed, true);
+  });
+  test("una pregunta mixta sigue bloqueada aunque luego se pida continuar", () => {
+    assert.equal(evaluateScope("continúa", 0, [user("quién eres y hazme una página HTML"), user("gracias")]).reason, "task_followup");
+  });
+  test("un seguimiento sin contexto requiere una consulta completa", () => {
+    assert.equal(evaluateScope("hazlo ahora").reason, "ambiguous_followup");
   });
 });

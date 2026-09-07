@@ -20,12 +20,23 @@
 export const OUT_OF_SCOPE_REPLY =
   "Mi rol como **Asistente EIT UDP** es orientarte en trámites, reglamentos, " +
   "prácticas, titulación, ayudantías y servicios universitarios de la Escuela. " +
-  "No resuelvo tareas ni ejercicios de asignaturas.\n\n" +
-  "Si tu duda es sobre la EIT y no la encontré, escríbele a **Secretaría de Estudios** " +
-  "(ximena.geoffroy@udp.cl) o revisa https://eit.udp.cl\n\n" +
-  "[SUGERENCIAS]\n" +
-  "- ¿Cuáles son los requisitos para inscribir la práctica?\n" +
-  "- ¿Qué plazos tiene el proceso de titulación?";
+  "No entrego código, tutorías ni soluciones de tareas. Para contenidos de una " +
+  "asignatura, consulta al profesor o ayudante.\n\n" +
+  "Si también tienes una consulta sobre un trámite de la EIT, hazla por separado.";
+
+export const CLARIFICATION_REPLY =
+  "¿Sobre qué trámite o plataforma de la EIT UDP necesitas orientación? " +
+  "Escribe la consulta completa para poder identificarla. Puedo ayudarte con " +
+  "prácticas, titulación, inscripción de ramos y servicios universitarios.";
+
+export const INSUFFICIENT_EVIDENCE_REPLY =
+  "No encontré información oficial suficiente para responder esa consulta. " +
+  "Puedes precisar el trámite, la carrera o la malla, o consultar directamente " +
+  "a la Escuela en https://eit.udp.cl.";
+
+export const CONVERSATIONAL_REPLY =
+  "Soy el Asistente EIT UDP. Puedo orientarte en trámites, reglamentos y uso " +
+  "administrativo de las plataformas universitarias. ¿Qué necesitas consultar?";
 
 // Homóglifos: letras cirílicas y griegas visualmente idénticas a las latinas.
 // "hаzme" con la а cirílica (U+0430) se ve igual pero no matchea ningún patrón,
@@ -160,10 +171,17 @@ export function respuestaContieneCodigo(textoAcumulado) {
 
 /** Mensaje que reemplaza a una respuesta que empezó a entregar código. */
 export const CODIGO_INTERCEPTADO_REPLY =
-  "\n\n---\n\n⚠️ Detuve esta respuesta: no entrego código ni resuelvo ejercicios de " +
-  "asignaturas. Mi rol es orientarte en trámites, reglamentos, prácticas, titulación " +
-  "y servicios de la Escuela.\n\nPara dudas de programación, habla con el ayudante o " +
-  "el profesor de tu ramo.";
+  OUT_OF_SCOPE_REPLY;
+
+/** Cubre guías técnicas en prosa, además del detector de sintaxis de código. */
+export function respuestaFueraDeAlcance(text) {
+  if (respuestaContieneCodigo(text)) return true;
+  const q = normalize(text);
+  return (
+    TECHNICAL_SUBJECTS.test(q) &&
+    /\b(aqui tienes|te (doy|dejo|muestro)|guia (basica|general|paso a paso)|tutorial|ejemplo de codigo|crea un archivo|crea una pagina|define los estilos)\b/.test(q)
+  );
+}
 
 /** Saludo o cortesía: se responde sin exigir contexto RAG. */
 export function isConversational(message) {
@@ -195,21 +213,52 @@ const DOMAIN_REGEX =
 
 /** ¿La consulta pertenece al mundo de la escuela, aunque RAG no haya encontrado nada? */
 export function isOnTopic(message) {
-  return DOMAIN_REGEX.test(normalize(message));
+  const q = normalize(message);
+  return DOMAIN_REGEX.test(q) || /\btomar\s+(?:el\s+)?programacion\b/.test(q);
+}
+
+/** Seguimientos sin tema propio: necesitan una consulta anterior identificable. */
+export function isGenericFollowUp(message) {
+  const q = normalize(message).replace(/^[¿¡\s]+|[.!?\s]+$/g, "");
+  return /^(?:(?:si|ok|bueno|por favor)[,\s]+)?(?:continua(?:r)?|sigue|sigamos|prosigue|hazlo|hazlo ahora|hazlo de nuevo|hazlo igual|hazlo por favor|continua con lo anterior|continua por favor|sigue con lo anterior|puedes continuar|puedes seguir|puedes hacerlo|y luego|y despues|y ahora|y para la segunda|y para la otra|dame mas detalles|explicame mas|solo por esta vez|si,? por favor)(?:[,\s]+por favor)?$/.test(q);
 }
 
 /**
  * Decide si la consulta puede responderse.
  *
  * @param {string} message - Último mensaje del usuario.
- * @param {number} foundDocsCount - Documentos EIT relevantes recuperados por RAG.
+ * @param {number} [_foundDocsCount] - Compatibilidad: los documentos NO autorizan la intención.
+ * @param {Array<{role: string, content: string}>} [recentHistory] - Mensajes previos al actual.
  * @returns {{allowed: true, reason: string} | {allowed: false, reason: string}}
  */
-export function evaluateScope(message, foundDocsCount) {
+export function evaluateScope(message, _foundDocsCount = 0, recentHistory = []) {
   // Un pedido de tarea se rechaza aunque RAG haya enganchado algo: es
   // justamente el caso que el gate de grounding por sí solo deja pasar.
   if (detectTaskRequest(message)) {
     return { allowed: false, reason: "task_request" };
+  }
+
+  if (isGenericFollowUp(message)) {
+    // Se revisa todo el historial ya acotado por MAX_MESSAGES, antes del recorte
+    // de caracteres. No se confía en un texto de rechazo de role=assistant.
+    for (let i = recentHistory.length - 1; i >= 0; i--) {
+      const prior = recentHistory[i];
+      if (prior.role !== "user" || isGenericFollowUp(prior.content)) continue;
+      const anchor = evaluateScope(prior.content);
+      if (anchor.reason === "conversational" || anchor.reason === "meta") continue;
+      if (!anchor.allowed) {
+        return {
+          allowed: false,
+          reason: anchor.reason === "task_request" ? "task_followup" : "ambiguous_followup",
+        };
+      }
+      return {
+        allowed: true,
+        reason: "contextual_followup",
+        query: `${prior.content}\nConsulta de seguimiento: ${message}`,
+      };
+    }
+    return { allowed: false, reason: "ambiguous_followup" };
   }
 
   if (isConversational(message)) {
@@ -220,11 +269,7 @@ export function evaluateScope(message, foundDocsCount) {
     return { allowed: true, reason: "meta" };
   }
 
-  if (foundDocsCount > 0) {
-    return { allowed: true, reason: "grounded" };
-  }
-
-  if (isStaticInfoQuery(message)) {
+  if (isStaticInfoQuery(message) && isOnTopic(message)) {
     return { allowed: true, reason: "static_info" };
   }
 
@@ -232,22 +277,6 @@ export function evaluateScope(message, foundDocsCount) {
     return { allowed: true, reason: "on_topic_sin_contexto" };
   }
 
-  // Todo lo demás también pasa, y esto es deliberado.
-  //
-  // Hasta acá había un rechazo por "fuera de tema" basado en vocabulario, y falló
-  // dos veces seguidas con preguntas legítimas: primero las que la búsqueda no
-  // encontraba, después "cómo puedo tomar programación", que no usa ninguna de las
-  // palabras esperadas. Una lista de términos nunca va a cubrir cómo escribe la
-  // gente, y cada palabra que falta es un estudiante rechazado.
-  //
-  // La asimetría manda: rechazar una consulta válida deja al estudiante sin
-  // respuesta, mientras que dejar pasar una fuera de tema solo produce un "no tengo
-  // información oficial sobre eso" — que para una pregunta ajena a la Escuela es
-  // exactamente lo que corresponde responder.
-  //
-  // Lo único que se bloquea de forma determinista es el pedido de tarea, arriba.
-  // Ese SÍ tiene que ser código: se intentó dejarlo en manos del prompt y el modelo
-  // no lo respetó. El alcance temático, en cambio, es un juicio blando y el prompt
-  // lo maneja mejor que una lista de palabras.
-  return { allowed: true, reason: "sin_clasificar" };
+  // No reconocer una consulta requiere aclaración, no autorización implícita.
+  return { allowed: false, reason: "sin_clasificar" };
 }

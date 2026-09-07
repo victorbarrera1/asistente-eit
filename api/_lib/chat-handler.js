@@ -11,12 +11,17 @@ import { createRateLimiter } from "./rate-limit.js";
 import {
   evaluateScope,
   OUT_OF_SCOPE_REPLY,
-  respuestaContieneCodigo,
-  CODIGO_INTERCEPTADO_REPLY,
+  respuestaFueraDeAlcance,
+  CLARIFICATION_REPLY,
+  INSUFFICIENT_EVIDENCE_REPLY,
+  CONVERSATIONAL_REPLY,
 } from "./scope-guard.js";
 
 export const MAX_MESSAGES = 12;
 export const MAX_MESSAGE_LENGTH = 3000;
+export const MAX_RESPONSE_CHARS = 16000;
+
+class ScopeOutputError extends Error {}
 
 /**
  * Presupuesto de historial que se envía al modelo, en caracteres.
@@ -133,17 +138,16 @@ export function validateChatRequest(body) {
     }
   }
 
+  if (messages.at(-1).role !== "user") {
+    return { valid: false, error: "El último mensaje debe ser del usuario." };
+  }
+
   return { valid: true, messages };
 }
 
 /**
- * Ejecuta el flujo completo de chat: valida, construye el prompt con RAG,
- * llama a Ollama en streaming y registra la analítica.
- *
- * @param {object} body - Cuerpo de la petición ({ messages }).
- * @param {(chunk: string) => void} onChunk - Callback invocado con cada trozo de texto.
- * @param {string} [rateLimitKey] - Clave de rate limiting (normalmente la IP del cliente).
- * @returns {Promise<{ok: true} | {ok: false, status: number, error: string}>}
+ * Admite la consulta antes de cualquier IA y emite como máximo una respuesta
+ * completa. El streaming del proveedor es interno: no se publica texto parcial.
  */
 export async function runChatHandler(body, onChunk, rateLimitKey = "unknown") {
   if (chatLimiter.isLimited(rateLimitKey)) {
@@ -160,43 +164,29 @@ export async function runChatHandler(body, onChunk, rateLimitKey = "unknown") {
   }
   chatLimiter.register(rateLimitKey);
 
-  // El historial se recorta ANTES de armar el prompt. Sin esto, un cliente puede
-  // enviar 12 mensajes de 3.000 caracteres y desbordar num_ctx a propósito para
-  // que llama.cpp descarte el system prompt junto con sus reglas.
-  const messages = trimHistory(validation.messages);
-
-  const lastUserMessage = [...messages].reverse().find((m) => m.role === "user")?.content ?? "";
-  const { systemPrompt, foundDocs } = await buildSystemPrompt(lastUserMessage, messages);
-
-  // foundDocs es un arreglo de documentos, así que hay que contar su largo.
-  const foundDocsCount = Array.isArray(foundDocs) ? foundDocs.length : Number(foundDocs) || 0;
-
-  // Control de alcance ANTES de llamar al modelo.
-  //
-  // La regla 7 del system prompt ya prohíbe resolver tareas, pero es una
-  // instrucción, no un mecanismo: sin contexto RAG el modelo igual respondía con
-  // su conocimiento propio. Rechazar acá es determinista, no se puede eludir con
-  // prompt injection y ahorra una inferencia completa en la GPU.
-  const scope = evaluateScope(lastUserMessage, foundDocsCount);
+  const lastUserMessage = validation.messages.at(-1).content;
+  const scope = evaluateScope(lastUserMessage, 0, validation.messages.slice(0, -1));
   if (!scope.allowed) {
-    onChunk(OUT_OF_SCOPE_REPLY);
-
-    // El motivo queda solo en el log del servidor. No se agrega una columna al
-    // insert porque preguntas_log hoy solo tiene `pregunta` y `con_contexto`:
-    // mandar un campo inexistente haría que PostgREST responda 400 y, como
-    // logQuestion traga los errores, se perderían estos registros en silencio.
-    console.warn(`[SCOPE] Consulta fuera de alcance (${scope.reason})`);
-
-    await logQuestion({ pregunta: lastUserMessage, conContexto: false });
-    return { ok: true };
+    const task = scope.reason === "task_request" || scope.reason === "task_followup";
+    onChunk(task ? OUT_OF_SCOPE_REPLY : CLARIFICATION_REPLY);
+    // Rechazo inmediato: tampoco espera escrituras remotas de analítica.
+    console.warn(`[SCOPE] Consulta no admitida (${scope.reason})`);
+    return { ok: true, outcome: task ? "out_of_scope" : "clarification" };
   }
 
-  // Se toma el cupo DESPUÉS del gate: las consultas rechazadas no llegan a la GPU,
-  // así que no deben ocupar un slot ni contar contra la concurrencia.
+  if (scope.reason === "conversational" || scope.reason === "meta") {
+    onChunk(CONVERSATIONAL_REPLY);
+    return { ok: true, outcome: "answered" };
+  }
+
+  // Las respuestas del cliente no son evidencia. Un seguimiento se reconstruye
+  // desde la consulta de usuario admitida más reciente, nunca desde un rechazo
+  // o una respuesta potencialmente inventada. Una pregunta nueva cambia de tema.
+  const query = scope.query ?? lastUserMessage;
+  const messages = [{ role: "user", content: query }];
+
+  // El cupo también cubre embeddings y reescrituras de las consultas admitidas.
   if (generacionesEnCurso >= MAX_GENERACIONES_CONCURRENTES) {
-    console.warn(
-      `[CARGA] Rechazada por concurrencia (${generacionesEnCurso}/${MAX_GENERACIONES_CONCURRENTES})`,
-    );
     return {
       ok: false,
       status: 503,
@@ -205,60 +195,57 @@ export async function runChatHandler(body, onChunk, rateLimitKey = "unknown") {
   }
   generacionesEnCurso++;
 
+  let streamStarted = false;
   try {
-    // Corte por salida: si el modelo empieza a entregar un bloque de código, se
-    // deja de reenviar y se explica por qué. Es la única defensa que no depende
-    // de cómo esté redactada la pregunta, y por eso existe: enumerar las formas
-    // de pedir una tarea no converge ("dame un ejemplo de recursión en Java"
-    // pasaba el filtro de entrada).
-    //
-    // No se aborta la generación en Ollama, solo se corta el reenvío: num_predict
-    // acota el desperdicio y evitamos propagar un AbortController por toda la
-    // cadena de streaming.
-    let acumulado = "";
-    let cortadoPorCodigo = false;
+    const { systemPrompt, foundDocs } = await buildSystemPrompt(query);
+    const hasEvidence = Array.isArray(foundDocs) && foundDocs.some(
+      (doc) => typeof doc.url === "string" && doc.url.trim() &&
+        typeof doc.contenido === "string" && doc.contenido.trim(),
+    );
+    if (!hasEvidence) {
+      onChunk(INSUFFICIENT_EVIDENCE_REPLY);
+      return { ok: true, outcome: "insufficient_evidence" };
+    }
 
-    const onChunkFiltrado = (chunk) => {
-      if (cortadoPorCodigo) return;
+    let accumulated = "";
+    try {
+      await streamAI({
+        messages,
+        systemPrompt,
+        onChunk(chunk) {
+          if (accumulated.length + chunk.length > MAX_RESPONSE_CHARS) {
+            throw new Error("Respuesta excede el presupuesto de salida");
+          }
+          accumulated += chunk;
+          if (respuestaFueraDeAlcance(accumulated)) {
+            // El lector del proveedor propaga la excepción y cancela el stream.
+            throw new ScopeOutputError("Salida fuera de alcance");
+          }
+        },
+      });
+    } catch (error) {
+      if (!(error instanceof ScopeOutputError)) throw error;
+      onChunk(OUT_OF_SCOPE_REPLY);
+      console.warn("[SCOPE] Respuesta descartada antes de publicarse");
+      return { ok: true, outcome: "out_of_scope" };
+    }
 
-      acumulado += chunk;
-      if (respuestaContieneCodigo(acumulado)) {
-        cortadoPorCodigo = true;
-        console.warn("[SCOPE] Respuesta interceptada: el modelo empezó a entregar código");
-        onChunk(CODIGO_INTERCEPTADO_REPLY);
-        return;
-      }
-      onChunk(chunk);
-    };
-
-    await streamAI({ messages, systemPrompt, onChunk: onChunkFiltrado });
-
-    await logQuestion({
-      pregunta: lastUserMessage,
-      // Antes era `foundDocs > 0` con foundDocs ya convertido en arreglo: la
-      // comparación daba siempre false, así que el panel de admin marcaba todas
-      // las preguntas como sin cobertura.
-      conContexto: foundDocsCount > 0,
-    });
-
-    return { ok: true };
-  } catch (e) {
-    // El detalle completo va SOLO a los logs del servidor.
-    console.error("[CHAT] Error:", e.message);
-
-    // Al cliente nunca se le devuelve e.message: los errores de rag.js incluyen
-    // OLLAMA_BASE_URL (la IP interna del servidor de inferencia on-premise) y el
-    // nombre del modelo. Devolverlo tal cual convertía cualquier caída de Ollama
-    // en una fuga de la topología de la red interna hacia cualquier usuario.
+    if (!accumulated.trim()) throw new Error("Respuesta vacía del proveedor");
+    // El lector exige finalización válida; prefijos, errores y streams truncados
+    // no llegan al cliente. Los detectores revisaron TODO el texto acumulado.
+    onChunk(accumulated);
+    streamStarted = true;
+    await logQuestion({ pregunta: lastUserMessage, conContexto: true });
+    return { ok: true, outcome: "answered" };
+  } catch (error) {
+    console.error("[CHAT] Error:", error.message);
     return {
       ok: false,
-      status: 500,
+      status: 502,
       error: "El asistente no está disponible en este momento. Intenta de nuevo en unos minutos.",
-      streamStarted: true,
+      streamStarted,
     };
   } finally {
-    // En finally: si el slot no se libera ante un error o una desconexión, el
-    // contador sube sin bajar nunca y el asistente termina rechazando a todos.
     generacionesEnCurso--;
   }
 }
