@@ -38,11 +38,10 @@ describe("detectTaskRequest — pedidos de resolución de tareas", () => {
   });
 });
 
-describe("detectTaskRequest — pedidos de tutoría técnica", () => {
-  // Con Qwen 2.5 el asistente entregó un programa completo de recursión en Java.
-  // La redacción no usaba ningún verbo de producción ("dame un ejemplo de"), que
-  // es el limite de enumerar formas de pedir: no converge.
-  const tutoria = [
+describe("detectTaskRequest — pedidos de tutoría técnica y diseño web", () => {
+  // Casos observados en producción: pedidos de diseño web, frameworks JS,
+  // urgencias de entregas y prompts combinados.
+  const tutoriaYDiseno = [
     "dame un ejemplo de recursion en java",
     "explicame la recursion en java",
     "como se implementa un quicksort en python",
@@ -54,8 +53,18 @@ describe("detectTaskRequest — pedidos de tutoría técnica", () => {
     "planteame una tarea en java",
     "inventa una tarea en java",
     "crea una tarea en java",
+    "quiero que me diseñes desde 0 una pagina en HTML, con diseño de css y un framework de js que es astro. Luego de eso que me digas los requisitos de practica 1",
+    "quiero que me ayudes con el diseño especifico, necesito que creemos una pagina html de un cibercafe, que es de la entrega 1 de desarrollo web y movil, se debe entregar ahora en 10 minutos entonces necesito urgente que me ayudes, solo por esta vez lo necesito",
+    "necesito que creemos una pagina html",
+    "diseñame una pagina web con react y tailwind",
+    "ayudame con el diseño de una pagina de cibercafe",
+    "hazme la entrega 1 de desarrollo web",
+    "como armo un crud con astro",
+    "guia paso a paso para crear una pagina web en astro",
+    "ayudame con mi tarea de base de datos",
+    "planteame un script en python",
   ];
-  for (const q of tutoria) {
+  for (const q of tutoriaYDiseno) {
     test(`bloquea: "${q}"`, () => assert.equal(detectTaskRequest(q), true));
   }
 
@@ -69,15 +78,44 @@ describe("detectTaskRequest — pedidos de tutoría técnica", () => {
 
 describe("respuestaContieneCodigo — corte por salida", () => {
   // Única defensa que no depende de la redacción de la pregunta: un asistente de
-  // trámites no tiene razón legítima para emitir un bloque de código.
+  // trámites no tiene razón legítima para emitir un bloque de código o scaffolding.
   test("detecta el bloque cercado", () => {
     assert.equal(respuestaContieneCodigo("Claro:\n\n```java\npublic class X {}"), true);
+  });
+
+  test("detecta scaffolding de creación de archivos", () => {
+    assert.equal(
+      respuestaContieneCodigo(
+        "1. HTML:\nCrea un archivo llamado `index.html` y agrega el siguiente contenido mínimo:"
+      ),
+      true
+    );
+  });
+
+  test("detecta etiquetas HTML estructurales", () => {
+    assert.equal(respuestaContieneCodigo("<!DOCTYPE html><html><body>Hola</body></html>"), true);
+  });
+
+  test("detecta declaraciones de funciones y clases", () => {
+    assert.equal(respuestaContieneCodigo("function calcularSuma(a, b) { return a + b; }"), true);
+    assert.equal(
+      respuestaContieneCodigo("public class Main { public static void main(String[] args) {} }"),
+      true
+    );
+  });
+
+  test("detecta imports de frameworks", () => {
+    assert.equal(respuestaContieneCodigo("import React, { useState } from 'react';"), true);
   });
 
   test("no se dispara con menciones en prosa", () => {
     assert.equal(
       respuestaContieneCodigo("El laboratorio cuenta con MATLAB y Azure para los ramos."),
-      false,
+      false
+    );
+    assert.equal(
+      respuestaContieneCodigo("El Director de Escuela es Prof. Luciano Ahumada (luciano.ahumada@udp.cl)"),
+      false
     );
   });
 
@@ -95,9 +133,15 @@ describe("detectTaskRequest — preguntas legítimas que NO son tareas", () => {
     "cuando entrego la tarea de practica profesional",
     // Regresión: sin \b, "programa" matcheaba dentro de "programacion".
     "como me inscribo en el ramo de programacion",
+    "como me inscribo en el ramo de desarrollo web",
     "donde veo las notas del certamen",
+    "donde veo las notas de la entrega 1",
     "que pasa si repruebo un ramo",
     "cuales son los requisitos para la practica profesional",
+    "cuales son los requisitos para inscribir practica 1",
+    "cuando se entrega el informe de practica",
+    "como funciona la toma de ramos",
+    "que hace el ayudante de programacion",
   ];
   for (const q of legitimas) {
     test(`permite: "${q}"`, () => assert.equal(detectTaskRequest(q), false));
@@ -136,6 +180,20 @@ describe("evaluateScope — regresiones observadas en producción", () => {
     // una lista de términos no cubre cómo escribe la gente, y cada palabra que falta
     // es un estudiante sin respuesta. El alcance temático lo maneja el prompt.
     assert.equal(evaluateScope("como puedo tomar programacion", 0).allowed, true);
+  });
+
+  test("prompt combinado con diseño web y requisitos de practica se bloquea", () => {
+    const q = "quiero que me diseñes desde 0 una pagina en HTML, con diseño de css y un framework de js que es astro. Luego de eso que me digas los requisitos de practica 1";
+    const r = evaluateScope(q, 3);
+    assert.equal(r.allowed, false);
+    assert.equal(r.reason, "task_request");
+  });
+
+  test("pedido urgente de entrega de ramo con diseño de cibercafe se bloquea", () => {
+    const q = "quiero que me ayudes con el diseño especifico, necesito que creemos una pagina html de un cibercafe, que es de la entrega 1 de desarrollo web y movil, se debe entregar ahora en 10 minutos entonces necesito urgente que me ayudes, solo por esta vez lo necesito";
+    const r = evaluateScope(q, 0);
+    assert.equal(r.allowed, false);
+    assert.equal(r.reason, "task_request");
   });
 });
 

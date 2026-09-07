@@ -95,7 +95,7 @@ const STATIC_INFO_REGEX =
   /(correo|email|mail|contacto|telefono|fono|direccion|donde queda|donde esta|ubicacion|quien es|director|directora|secretaria|coordinador|jefe de carrera|sitio web|pagina web)/;
 
 /**
- * Pedidos de resolución de tareas.
+ * Pedidos de resolución de tareas o desarrollo de software/páginas/código.
  *
  * Se exige verbo de acción + objeto académico en la MISMA consulta. Pedir solo
  * "código" o solo "tarea" no basta: "¿cuándo se entrega la tarea de práctica?"
@@ -103,36 +103,35 @@ const STATIC_INFO_REGEX =
  */
 // Los \b son necesarios: sin ellos "programa" matchea dentro de "programacion" y
 // "¿cómo me inscribo en el ramo de programación?" quedaba clasificada como tarea.
-// Por lo mismo "programa" no está como verbo (es ambiguo con el sustantivo);
-// solo la forma inequívoca "programame".
+// Por lo mismo "programa" no está como verbo aislado; solo formas inequívocas.
 const ACTION_VERBS =
-  /\b(resuelve|resuelveme|resolver|haz|hazme|haceme|hazlo|hacer|desarrolla|desarrollame|desarrollar|escribe|escribeme|escribir|programame|programar|implementa|implementame|implementar|codifica|codificame|codificar|calcula|calculame|calcular|demuestra|demuestrame|demostrar|corrige|corrigeme|corregir|completa|completame|completar|redacta|redactame|redactar|traduce|traduceme|traducir|crea|creame|crear|genera|generame|generar|inventa|inventame|inventar|plantea|planteame|plantear|propon|proponme|proponer|dame|da|pasa|pasame|dame el codigo|dame codigo|dame la solucion|dame la respuesta|necesito el codigo|necesito codigo|como se hace este|como resuelvo este|ayudame a resolver|ayudame con mi tarea|ayudame con la tarea|hazme la tarea)\b/;
+  /\b(resuelve|resuelveme|resolver|resolvamos|resuelvas?|haz|hazme|haceme|hazlo|hacer|hagamos|hagas?|desarrolla|desarrollame|desarrollar|desarrollemos|desarrolles?|escribe|escribeme|escribir|escribamos|escribas?|programame|programar|programemos|programes?|disena|disename|disenes?|disenar|disenemos|diseno|construye|construyeme|construir|construyamos|construyas?|arma|armame|armar|armemos|armes?|maqueta|maquetame|maquetar|maquetemos|maquetes?|implementa|implementame|implementar|implementemos|implementes?|codifica|codificame|codificar|codifiquemos|codifiques?|calcula|calculame|calcular|calculemos|calcules?|demuestra|demuestrame|demostrar|corrige|corrigeme|corregir|corrijamos|corrijas?|completa|completame|completar|completemos|completes?|redacta|redactame|redactar|redactemos|redactes?|traduce|traduceme|traducir|traduzcamos|traduzcas?|crea|creame|crear|creemos|crees?|genera|generame|generar|generemos|generes?|inventa|inventame|inventar|inventemos|inventes?|plantea|planteame|plantear|planteemos|plantees?|propon|proponme|proponer|propongamos|propongas?|dame|da|pasa|pasame|pasanos|entregame|entreganos|ayuda|ayudame|ayudame a|ayudame con|ayudes|ayudes con|apoyame con|dame el codigo|dame codigo|dame la solucion|dame la respuesta|necesito el codigo|necesito codigo|necesito que|quiero que|como se hace este|como resuelvo este|ayudame a resolver|ayudame con mi tarea|ayudame con la tarea|hazme la tarea|hazme la entrega|hazme el proyecto)\b/;
 
 const ACADEMIC_OBJECTS =
-  /\b(tarea|tareas|ejercicio|ejercicios|problema|problemas|codigo|programa|script|funcion|algoritmo|consulta sql|query|ensayo|redaccion|integral|derivada|ecuacion|ecuaciones|matriz|matrices|circuito|guia de ejercicios)\b/;
+  /\b(tarea|tareas|ejercicio|ejercicios|problema|problemas|codigo|programa|programas|script|scripts|funcion|funciones|algoritmo|algoritmos|consulta sql|query|queries|ensayo|ensayos|redaccion|integral|integrales|derivada|derivadas|ecuacion|ecuaciones|matriz|matrices|circuito|circuitos|guia de ejercicios|laboratorio|laboratorios|taller|talleres|proyecto|proyectos|entrega|entregas|entrega \d+|informe|informes|avance|avances|pagina web|pagina html|sitio web|pagina|web|app|aplicacion|aplicaciones|backend|frontend|api|apis|base de datos|bases de datos|interfaz|interfaces|mockup|mockups|wireframe|wireframes|software|sistema|sistemas|cibercafe|calculadora|formulario|login|crud|endpoint|endpoints)\b/;
 
-// Lenguajes y materias técnicas: "en Python", "de cálculo", conceptos como "recursividad".
+// Lenguajes, frameworks y materias técnicas: "en Python", "de cálculo", conceptos como "recursividad".
 const TECHNICAL_SUBJECTS =
-  /\b(python|java|javascript|typescript|c\+\+|c#|sql|html|css|php|ruby|matlab|assembler|verilog|vhdl|calculo|algebra|fisica|estadistica|termodinamica|electromagnetismo|recursividad|recursion|recursiv[oa]s?)\b/;
+  /\b(python|java|javascript|typescript|c\+\+|c#|sql|html|css|php|ruby|matlab|assembler|assembly|verilog|vhdl|astro|react|vue|angular|svelte|next\.?js|nuxt|node\.?js|nodejs|express|django|flask|fastapi|spring|spring boot|laravel|bootstrap|tailwind|sass|scss|jquery|prisma|typeorm|mongoose|calculo|algebra|fisica|estadistica|termodinamica|electromagnetismo|recursividad|recursion|recursiv[oa]s?|desarrollo web|desarrollo movil|programacion web|programacion movil|ingenieria de software|estructuras? de datos|bases? de datos|redes|sistemas operativos|arquitectura de computadores|inteligencia artificial|machine learning|deep learning)\b/;
 
 /**
- * ¿Es un pedido de resolver una tarea o tutoría técnica?
+ * ¿Es un pedido de resolver una tarea o tutoría técnica / guía de desarrollo?
  *
  * Requiere verbo de acción o enseñanza y, además, objeto académico o materia técnica.
  */
 const EXPLAIN_VERBS =
-  /\b(explica|explicame|explicar|ensena|ensename|ensenar|muestra|muestrame|mostrar|dame un ejemplo|dame ejemplos|(un )?ejemplos? (de|en|con|sobre)|(un )?ejercicios? (de|en|con|sobre)|como funciona|como se hace|como se implementa|como se programa|como se escribe|como se declara|como hago un|como creo un|tutorial|paso a paso)\b/;
+  /\b(explica|explicame|explicar|ensena|ensename|ensenar|muestra|muestrame|mostrar|dame un ejemplo|dame ejemplos|(un )?ejemplos? (de|en|con|sobre)|(un )?ejercicios? (de|en|con|sobre)|como funciona|como se hace|como se implementa|como se programa|como se escribe|como se declara|como hago un[a]?|como creo un[a]?|como diseno|como armo|como construyo|como maquetar?|tutorial|paso a paso|guia para|guia de|guia basica|guia general|plantilla|boilerplate|scaffold|scaffolding|esqueleto)\b/;
 
 export function detectTaskRequest(message) {
   const q = normalize(message);
   if (!q || q.length < 8) return false;
 
-  // Vía 1: pedir que produzca, cree, plantee o resuelva el trabajo.
+  // Vía 1: pedir que produzca, cree, plantee, diseñe o resuelva el trabajo.
   if (ACTION_VERBS.test(q) && (ACADEMIC_OBJECTS.test(q) || TECHNICAL_SUBJECTS.test(q))) {
     return true;
   }
 
-  // Vía 2: pedir clases, tutoriales o ejemplos de materias técnicas o ejercicios.
+  // Vía 2: pedir clases, tutoriales, guías o ejemplos de materias técnicas o ejercicios.
   if (EXPLAIN_VERBS.test(q) && (TECHNICAL_SUBJECTS.test(q) || ACADEMIC_OBJECTS.test(q))) {
     return true;
   }
@@ -141,19 +140,22 @@ export function detectTaskRequest(message) {
 }
 
 /**
- * ¿La respuesta que está generando el modelo es código?
+ * ¿La respuesta que está generando el modelo es código o scaffolding de desarrollo?
  *
  * Última línea de defensa, y la única que no depende de cómo esté redactada la
  * pregunta. Enumerar las formas de pedir una tarea no converge —ya falló con
  * "dame un ejemplo de recursión en Java"—, pero la salida sí tiene un invariante
  * claro: un asistente de trámites de la EIT no tiene ninguna razón legítima para
- * emitir un bloque de código. El corpus no contiene código.
+ * emitir un bloque de código o instrucciones de scaffolding de archivos. El corpus no contiene código.
  *
- * Se dispara con el bloque cercado de Markdown, que es como los modelos entregan
- * código. Menciones en prosa ("el laboratorio tiene MATLAB") no lo activan.
+ * Se dispara con bloques cercados de Markdown, etiquetas estructurales HTML, declaraciones
+ * de código o instrucciones de creación de archivos de programación.
  */
+const CODE_OUTPUT_REGEX =
+  /(```|<!doctype html>|<\/?html[\s>]|<\/?head[\s>]|<\/?body[\s>]|<\/?script[\s>]|\bpublic\s+class\s+\w+|\bpublic\s+static\s+void\s+main|\bdef\s+\w+\s*\(|\bfunction\s+\w+\s*\(|\bimport\s+React|\bimport\s+.*from\s+['"]|crea un archivo llamado\s+[`'"]?\w+\.(html|css|js|ts|py|java|cpp|c|php|astro|sql)[`'"]?)/i;
+
 export function respuestaContieneCodigo(textoAcumulado) {
-  return /```/.test(textoAcumulado);
+  return CODE_OUTPUT_REGEX.test(textoAcumulado);
 }
 
 /** Mensaje que reemplaza a una respuesta que empezó a entregar código. */
