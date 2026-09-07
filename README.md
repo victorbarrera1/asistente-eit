@@ -25,7 +25,7 @@ The chatbot serves as a centralized information hub for the faculty, providing p
 
 Evolved from an initial prototype into a **production-ready**, AI-driven platform engineered to eliminate hallucinations by strictly grounding generated responses in official institutional sources.
 
-- **AI Engine (On-Premise GPU Inference):** Response generation and semantic search powered by **Meta Llama 3.1 8B** and **BGE-M3 (1024d)** hosted directly on the university's internal **AI Server** via **Ollama**, completely eliminating third-party cloud API limits, subscription costs, and external data leakage.
+- **AI Engine (On-Premise GPU Inference):** Response generation and semantic search powered by **QWEN 2.5** and **BGE-M3 (1024d)** hosted directly on the university's internal **AI Server** via **Ollama**, completely eliminating third-party cloud API limits, subscription costs, and external data leakage.
 - **Vector Database:** **Supabase** (PostgreSQL + `pgvector`) for vector storage and high-performance similarity search.
 - **Atomic Scraping & Semantic Chunking:** An automated Node.js scraping pipeline crawls official web portals (`eit.udp.cl` and `dae.udp.cl`), cleans HTML overhead, performs paragraph-aware semantic chunking, and ingests vectorized data using secure transactional batch workflows (Batch IDs).
 - **Query Rewriting:** Features dynamic detection of Chilean student slang and colloquial terms (*e.g., "profe", "cachai"*), normalizing queries on the backend prior to vector retrieval to significantly boost search recall and precision.
