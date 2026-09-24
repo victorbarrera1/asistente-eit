@@ -99,9 +99,8 @@ function normalize(text) {
 const CONVERSATIONAL_REGEX =
   /^(hola+|buenas?|buenos? dias|buenas? tardes|buenas? noches|hey|que tal|como estas|quien eres|que eres|que haces|que puedes hacer|en que me puedes ayudar|ayuda|gracias|muchas gracias|ok|oka|vale|perfecto|entendido|listo|genial|chao|adios|nos vemos|bye)[\s!.?¡¿]*$/;
 
-// Preguntas que el system prompt puede responder por sí solo (bloque de contacto
-// y datos generales), aunque RAG no devuelva nada. Sin esta excepción el gate
-// rechazaría "¿cuál es el correo del director?", que sí debe responderse.
+// Consultas de contacto y ubicación. También requieren documentos recuperados
+// antes de generar una respuesta; el prompt estático no basta como evidencia.
 const STATIC_INFO_REGEX =
   /(correo|email|mail|contacto|telefono|fono|direccion|donde queda|donde esta|ubicacion|quien es|director|directora|secretaria|coordinador|jefe de carrera|sitio web|pagina web)/;
 
@@ -133,9 +132,39 @@ const TECHNICAL_SUBJECTS =
 const EXPLAIN_VERBS =
   /\b(explica|explicame|explicar|ensena|ensename|ensenar|muestra|muestrame|mostrar|dame un ejemplo|dame ejemplos|(un )?ejemplos? (de|en|con|sobre)|(un )?ejercicios? (de|en|con|sobre)|como funciona|como se hace|como se implementa|como se programa|como se escribe|como se declara|como hago un[a]?|como creo un[a]?|como diseno|como armo|como construyo|como maquetar?|tutorial|paso a paso|guia para|guia de|guia basica|guia general|plantilla|boilerplate|scaffold|scaffolding|esqueleto)\b/;
 
+// Se neutraliza únicamente el objeto de operaciones administrativas concretas.
+// Nunca se autoriza toda la consulta por mencionar Canvas o una inscripción:
+// cualquier petición adicional de código/tutoría sigue siendo examinada.
+const COURSE_ENROLLMENT = new RegExp(
+  String.raw`\b(?:inscribir|inscribirme|tomar|convalidar)\s+(?:(?:el|un)\s+)?(?:(?:ramo|curso|asignatura)\s+(?:de\s+)?)?${TECHNICAL_SUBJECTS.source}`,
+  "g",
+);
+const PLATFORM_SUBMISSION =
+  /\b(?:subir|adjuntar|enviar|entregar)\s+(?:(?:mi|la|el|un|una|su)\s+)?(?:tarea|informe|entrega|archivo|documento)(?:\s+de\s+practica)?\s+(?:a|en)\s+(?:canvas|(?:el\s+)?portal(?:\s+udp)?)\b/g;
+const FORM_LINK = /\b(?:enlace|link|url)\s+(?:al|del|para el)\s+formulario\b/g;
+
+function taskIntentText(query) {
+  return query
+    .replace(COURSE_ENROLLMENT, "tramite de inscripcion")
+    .replace(PLATFORM_SUBMISSION, "tramite de plataforma")
+    .replace(FORM_LINK, "enlace administrativo");
+}
+
 export function detectTaskRequest(message) {
-  const q = normalize(message);
+  const q = taskIntentText(normalize(message));
   if (!q || q.length < 8) return false;
+
+  // Tutorías sin un imperativo: «quiero aprender Python», «qué es una derivada».
+  if (
+    /\b(aprender|aprendo|define|defineme|definir|que es|que son)\b/.test(q) &&
+    (TECHNICAL_SUBJECTS.test(q) || /\b(derivadas?|integrales?|ecuaciones?|algoritmos?)\b/.test(q))
+  ) return true;
+
+  // Solicitudes de un entregable y referencias a escribir/resolver lo anterior.
+  if (
+    /\b(?:necesito|quiero)\s+(?:urgente\s+)?(?:un|una|el)\s+(?:pagina|sitio web|script|codigo|aplicacion|app|ensayo|solucion)\b/.test(q) ||
+    (/\b(escribirlo|redactarlo|resolverlo|programarlo|disenarlo)\b/.test(q) && ACADEMIC_OBJECTS.test(q))
+  ) return true;
 
   // Vía 1: pedir que produzca, cree, plantee, diseñe o resuelva el trabajo.
   if (ACTION_VERBS.test(q) && (ACADEMIC_OBJECTS.test(q) || TECHNICAL_SUBJECTS.test(q))) {
@@ -179,7 +208,7 @@ export function respuestaFueraDeAlcance(text) {
   const q = normalize(text);
   return (
     TECHNICAL_SUBJECTS.test(q) &&
-    /\b(aqui tienes|te (doy|dejo|muestro)|guia (basica|general|paso a paso)|tutorial|ejemplo de codigo|crea un archivo|crea una pagina|define los estilos)\b/.test(q)
+    /\b(guia (basica|general|paso a paso)|tutorial|ejemplo (de codigo|en java|en python|en html)|crea un archivo|crea una pagina|define los estilos)\b/.test(q)
   );
 }
 
@@ -188,7 +217,7 @@ export function isConversational(message) {
   return CONVERSATIONAL_REGEX.test(normalize(message));
 }
 
-/** Consulta resoluble con el bloque de contacto del system prompt. */
+/** Identifica consultas de contacto y ubicación. */
 export function isStaticInfoQuery(message) {
   return STATIC_INFO_REGEX.test(normalize(message));
 }
@@ -204,16 +233,19 @@ export function isMetaQuery(message) {
   return META_REGEX.test(normalize(message));
 }
 
-// Vocabulario del mundo de la escuela. Se usa para distinguir "pregunta de la EIT
-// que la búsqueda no supo encontrar" de "pregunta que no tiene nada que ver".
-// Es deliberadamente amplio: el costo de un falso positivo acá es bajo (el modelo
-// dirá que no tiene el dato), y el de un falso negativo es rechazar a un estudiante.
+// Vocabulario institucional para la admisión inicial. La coincidencia temática
+// no demuestra intención administrativa ni respaldo factual: requiere evaluar
+// falsos positivos y negativos con consultas revisadas por la Escuela.
 const DOMAIN_REGEX =
   /\b(eit|udp|icit|cdai|escuela|facultad|universidad|carrera|ramo|ramos|malla|asignatura|asignaturas|curso|cursos|practica|practicas|titulacion|titular|titulo|grado|egreso|egresado|tesis|memoria|capstone|ayudantia|ayudantias|ayudante|reglamento|reglamentos|laboratorio|laboratorios|beca|becas|tne|dae|gratuidad|matricula|arancel|semestre|semestres|certamen|control|nota|notas|profe|profesor|profesora|academico|academicos|docente|alumno|alumnos|estudiante|estudiantes|acreditacion|acreditada|admision|convalidar|convalidacion|inscribir|inscripcion|secretaria|coordinador|director|directora|campus|sala|salas|horario|horarios|calendario|credito|creditos|informatica|telecomunicaciones|concurso|concursos|seminario|seminarios|investigacion|vinculacion|udpiler|canvas|portal|biblioteca|psicologo|psicologa|bienestar|salud mental|comite|intercambio|magister|postgrado|diplomado|infraestructura|equipo|equipos|software|matlab|azure|bizagi)\b/;
 
 /** ¿La consulta pertenece al mundo de la escuela, aunque RAG no haya encontrado nada? */
 export function isOnTopic(message) {
-  const q = normalize(message);
+  // Presentarse como alumno no convierte otra pregunta en un trámite UDP.
+  const q = normalize(message).replace(
+    /\bsoy\s+(?:un\s+|una\s+)?(?:alumn[oa]|estudiante)\s+(?:de\s+(?:la\s+)?)?(?:udp|eit)(?:\s+udp)?\b/g,
+    "",
+  );
   return DOMAIN_REGEX.test(q) || /\btomar\s+(?:el\s+)?programacion\b/.test(q);
 }
 
@@ -239,8 +271,8 @@ export function evaluateScope(message, _foundDocsCount = 0, recentHistory = []) 
   }
 
   if (isGenericFollowUp(message)) {
-    // Se revisa todo el historial ya acotado por MAX_MESSAGES, antes del recorte
-    // de caracteres. No se confía en un texto de rechazo de role=assistant.
+    // Se revisa todo el historial ya acotado por MAX_MESSAGES. No se confía en
+    // un texto de rechazo de role=assistant.
     for (let i = recentHistory.length - 1; i >= 0; i--) {
       const prior = recentHistory[i];
       if (prior.role !== "user" || isGenericFollowUp(prior.content)) continue;

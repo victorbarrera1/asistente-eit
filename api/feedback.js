@@ -4,13 +4,17 @@
  */
 import { runFeedbackHandler } from "./_lib/feedback-handler.js";
 import { getClientKey } from "./_lib/rate-limit.js";
+import { validateParsedJsonBody } from "./_lib/http-body.js";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const result = await runFeedbackHandler(req.body, getClientKey(req));
+  const parsed = validateParsedJsonBody(req);
+  if (!parsed.ok) return res.status(parsed.status).json({ error: parsed.error });
+
+  const result = await runFeedbackHandler(parsed.body, getClientKey(req));
   if (!result.ok) {
     return res.status(result.status).json({ error: result.error });
   }

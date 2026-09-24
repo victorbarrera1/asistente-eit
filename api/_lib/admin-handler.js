@@ -6,7 +6,7 @@
  * Flujo de auth: POST /api/admin-login con password -> cookie HttpOnly firmada.
  * GET/POST /api/admin-stats valida la cookie, ya no requiere la contraseña.
  */
-import { timingSafeEqual } from "node:crypto";
+import { createHash, timingSafeEqual } from "node:crypto";
 import {
   createSessionToken,
   isRateLimited,
@@ -14,11 +14,21 @@ import {
   isValidSessionToken,
 } from "./admin-session.js";
 
+/**
+ * Compara dos strings en tiempo constante, incluido su largo.
+ *
+ * La versión anterior retornaba antes si los largos diferían, y eso filtraba el
+ * largo de ADMIN_PASSWORD por tiempo de respuesta. Comparar los SHA-256 deja
+ * dos buffers de 32 bytes siempre, sea cual sea la entrada.
+ */
 function constantTimeEquals(a, b) {
-  const bufA = Buffer.from(a || "");
-  const bufB = Buffer.from(b || "");
-  if (bufA.length !== bufB.length) return false;
-  return timingSafeEqual(bufA, bufB);
+  const hashA = createHash("sha256")
+    .update(String(a ?? ""))
+    .digest();
+  const hashB = createHash("sha256")
+    .update(String(b ?? ""))
+    .digest();
+  return timingSafeEqual(hashA, hashB);
 }
 
 // Contraseñas obvias: son las primeras que prueba cualquiera que conozca el
@@ -157,7 +167,11 @@ export function runAdminLoginHandler(password, rateLimitKey) {
     }
   }
 
-  if (typeof password !== "string" || !constantTimeEquals(password, ADMIN_PASSWORD)) {
+  if (
+    typeof password !== "string" ||
+    password.length > 256 ||
+    !constantTimeEquals(password, ADMIN_PASSWORD)
+  ) {
     registerFailedAttempt(rateLimitKey);
     console.warn(`[AUDIT] Login admin fallido · origen=${rateLimitKey}`);
     return { ok: false, status: 401, error: "Contraseña incorrecta." };

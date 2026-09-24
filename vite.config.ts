@@ -22,47 +22,35 @@ const baseSecurityHeaders = {
   "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
 };
 
-// Directivas que no dependen de nonces/hashes y por lo tanto no arriesgan
-// romper la hidratación de TanStack Start + Vite:
-//   object-src 'none'  → sin <object>/<embed> (vector clásico de ejecución)
-//   base-uri 'self'    → impide que un <base> inyectado redirija rutas relativas
-//   form-action 'self' → impide que un formulario inyectado postee a otro dominio
-// script-src/style-src siguen fuera a propósito (requieren nonces; mejora aparte).
-const cspBase = "object-src 'none'; base-uri 'self'; form-action 'self'";
-
+// La Content-Security-Policy de las páginas NO va acá: la fija src/server.ts con
+// un nonce por petición (script-src 'nonce-…'), y un header de routeRules la
+// reemplazaría por una versión sin script-src. Se verificó con curl.
 const framedDeniedHeaders = {
   ...baseSecurityHeaders,
   "X-Frame-Options": "DENY",
-  "Content-Security-Policy": `${cspBase}; frame-ancestors 'none'`,
 };
 
 const routeRules = {
   // Baseline para todo (incluye /api/*): nunca hacer sniffing de contenido,
   // no filtrar la URL completa como referrer, sin permisos de cámara/mic/geo.
-  "/**": { headers: { ...baseSecurityHeaders, "Content-Security-Policy": cspBase } },
+  "/**": { headers: baseSecurityHeaders },
   // Páginas normales: no deben poder embeberse en un iframe de otro sitio.
   "/": { headers: framedDeniedHeaders },
-  // El panel de admin nunca debe embeberse: 'self' alcanzaba para que una
-  // página del propio sitio lo superpusiera, así que acá va 'none'.
+  // El panel de admin nunca debe embeberse.
   "/admin": { headers: framedDeniedHeaders },
   // Las respuestas de la API no deben quedar cacheadas por proxies o el
   // navegador: /api/admin-stats devuelve datos del panel.
   "/api/**": {
     headers: {
       ...baseSecurityHeaders,
-      "Content-Security-Policy": cspBase,
+      "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'",
+      "X-Frame-Options": "DENY",
       "Cache-Control": "no-store, max-age=0",
     },
   },
-  // /widget existe para ser embebido, pero `frame-ancestors *` permitía que
-  // CUALQUIER sitio lo incrustara y lo presentara como asistente oficial de la
-  // UDP dentro de una página falsa. Se acota a los dominios de la universidad.
-  "/widget": {
-    headers: {
-      ...baseSecurityHeaders,
-      "Content-Security-Policy": `${cspBase}; frame-ancestors 'self' https://*.udp.cl`,
-    },
-  },
+  // /widget se embebe solo desde dominios UDP: lo controla frame-ancestors en la
+  // CSP que arma src/server.ts (sin X-Frame-Options, que no admite listas).
+  "/widget": { headers: baseSecurityHeaders },
 };
 
 export default defineConfig({

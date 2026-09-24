@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { runAdminLoginHandler, origenPermitido } from "../../api/_lib/admin-handler.js";
 import { buildSessionCookie } from "../../api/_lib/admin-session.js";
 import { getClientKey } from "../../api/_lib/rate-limit.js";
+import { readJsonBody } from "../../api/_lib/http-body.js";
 
 export const Route = createFileRoute("/api/admin-login")({
   server: {
@@ -11,18 +12,17 @@ export const Route = createFileRoute("/api/admin-login")({
           return Response.json({ error: "Origen no permitido." }, { status: 403 });
         }
 
-        let body: { password?: string };
-        try {
-          body = (await request.json()) as { password?: string };
-        } catch {
-          return Response.json({ error: "Cuerpo de la petición inválido." }, { status: 400 });
+        // Un cuerpo JSON `null` antes hacía fallar `body.password` con un 500.
+        const parsed = await readJsonBody(request);
+        if (!parsed.ok) {
+          return Response.json({ error: parsed.error }, { status: parsed.status });
         }
 
         // Misma corrección que en api/admin-login.js: x-forwarded-for lo controla
         // el cliente, así que derivar la clave de ahí permitía intentos ilimitados
         // contra la contraseña de admin rotando el header.
         const rateLimitKey = getClientKey(request);
-        const result = runAdminLoginHandler(body.password, rateLimitKey);
+        const result = runAdminLoginHandler(parsed.body.password, rateLimitKey);
         if (!result.ok) {
           return Response.json({ error: result.error }, { status: result.status });
         }

@@ -1,0 +1,47 @@
+---
+title: Diagrama de despliegue — Asistente EIT UDP
+---
+flowchart LR
+  subgraph cliente["Dispositivo del estudiante"]
+    nav["Navegador web<br/>React SPA · localStorage"]
+  end
+
+  subgraph udpsites["Sitios UDP (*.udp.cl)"]
+    iframe["Página con widget<br/>iframe /widget"]
+    fuentes["eit · dae · www · estudiantes · admision<br/>(fuentes del corpus)"]
+  end
+
+  subgraph leo["Servidor leo — Ubuntu · Dokku"]
+    nginx["Nginx<br/>proxy inverso · TLS"]
+    app["Contenedor asistente-eit<br/>Node.js · Nitro · TanStack Start<br/>API /api/* · SSR"]
+    ollamaGPU["Ollama (GPU)<br/>qwen2.5:7b · bge-m3"]
+  end
+
+  subgraph vm["VM de ingesta — Ubuntu 26.04"]
+    timers["systemd timers<br/>scraper diario · purga semanal"]
+    scraper["Scraper Node.js<br/>Cheerio · incremental"]
+    ollamaCPU["Ollama (CPU)<br/>bge-m3"]
+    snaps[("Snapshots HTML")]
+  end
+
+  subgraph supa["Supabase (nube)"]
+    rest["PostgREST"]
+    pg[("PostgreSQL + pgvector<br/>eit_docs · eit_paginas<br/>preguntas_log · feedback")]
+  end
+
+  subgraph ci["GitLab"]
+    pipe["CI: tsc · tests · build<br/>deploy a Dokku (main)"]
+  end
+
+  nav -- "HTTPS 443 · JSON" --> nginx
+  iframe -. "embebe" .-> nginx
+  nginx -- "HTTP · puerto interno" --> app
+  app -- "HTTP 11434 (localhost)" --> ollamaGPU
+  app -- "HTTPS · REST/RPC" --> rest
+  rest --> pg
+  timers --> scraper
+  scraper -- "HTTPS GET condicional" --> fuentes
+  scraper -- "HTTP 11434 (localhost)" --> ollamaCPU
+  scraper -- "HTTPS · REST" --> rest
+  scraper --> snaps
+  pipe -- "git push SSH" --> leo

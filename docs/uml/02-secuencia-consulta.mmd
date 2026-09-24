@@ -1,0 +1,57 @@
+---
+title: Diagrama de secuencia — Estudiante consulta un trámite
+---
+sequenceDiagram
+  autonumber
+  actor E as Estudiante
+  participant UI as UdpChat (React)
+  participant API as ChatHandler (/api/chat)
+  participant RL as RateLimiter
+  participant SG as ScopeGuard
+  participant RAG as RagService
+  participant OL as Ollama (bge-m3 + qwen2.5)
+  participant DB as Supabase (pgvector)
+
+  E->>UI: escribe "¿Cómo inscribo la práctica?"
+  UI->>API: POST /api/chat {messages}
+  API->>RL: isLimited(ip)
+  RL-->>API: false
+  API->>API: validar cuerpo (≤128 KB, ≤12 mensajes)
+  API->>SG: evaluateScope(mensaje, historial)
+  SG-->>API: EvaluacionAlcance
+
+  alt tarea, código o tutoría
+    API-->>UI: respuesta fija de fuera de alcance
+  else consulta ambigua
+    API-->>UI: pide aclaración
+  else trámite admitido
+    API->>RAG: buildSystemPrompt(consulta)
+    RAG->>OL: embed(consulta)
+    OL-->>RAG: vector 1024d
+    RAG->>DB: buscar_docs_hibrido(vector, texto)
+    DB-->>RAG: fragmentos (RRF semántica + léxica)
+    RAG->>RAG: rerank y preparar ≤3 fragmentos
+    RAG-->>API: prompt + contexto
+
+    alt sin evidencia
+      API->>DB: logQuestion(con_contexto = false)
+      API-->>UI: "No encontré información oficial suficiente…"
+    else con evidencia
+      API->>OL: generar respuesta (stream interno)
+      OL-->>API: texto por partes
+      API->>SG: respuestaFueraDeAlcance(texto acumulado)
+      alt la salida se desvía
+        API-->>UI: respuesta fija de fuera de alcance
+      else salida válida
+        API->>DB: logQuestion(con_contexto = true)
+        API-->>UI: respuesta completa con fuentes
+      end
+    end
+  end
+
+  UI-->>E: muestra respuesta y tarjetas de fuentes
+  opt el estudiante evalúa
+    E->>UI: 👍 / 👎 + comentario
+    UI->>API: POST /api/feedback
+    API->>DB: insertar feedback
+  end

@@ -8,6 +8,7 @@
  */
 import { buildSystemPrompt, streamAI, logQuestion } from "./rag.js";
 import { createRateLimiter } from "./rate-limit.js";
+import { collectEvidenceUrls, filterOutputLinks } from "./output-links.js";
 import {
   evaluateScope,
   OUT_OF_SCOPE_REPLY,
@@ -20,54 +21,14 @@ import {
 export const MAX_MESSAGES = 12;
 export const MAX_MESSAGE_LENGTH = 3000;
 export const MAX_RESPONSE_CHARS = 16000;
+export const LIMITED_MODE_REPLY =
+  "En este momento solo está disponible la orientación general del asistente. " +
+  "Para consultar requisitos o reglamentos, revisa el sitio oficial de la Escuela " +
+  "en https://eit.udp.cl o contacta a Secretaría de Estudios.";
 
 class ScopeOutputError extends Error {}
 
-/**
- * Presupuesto de historial que se envía al modelo, en caracteres.
- *
- * Los límites por mensaje no alcanzan: 12 mensajes de 3.000 caracteres suman
- * ~10.900 tokens y, con el system prompt, superan los 8.192 de num_ctx. Cuando la
- * ventana desborda, llama.cpp descarta desde el INICIO, que es exactamente donde
- * va el system prompt. Un alumno puede provocarlo a propósito —rellenando la
- * conversación con mensajes largos— para desalojar las reglas de comportamiento
- * antes de preguntar lo que quiera.
- *
- * El gate de alcance y el corte por código viven en el servidor y no dependen del
- * prompt, así que ese ataque no habilita pedir tareas; lo que sí lograba era
- * quitarle las reglas de "no inventes" y de alcance temático.
- *
- * Cálculo con num_ctx 8192: system prompt ~3.000 tok + contexto RAG ~1.100 +
- * reserva de salida (num_predict) 800 = ~4.900. Quedan ~3.200 tokens para el
- * historial, que a ~3,3 caracteres por token son ~10.500 caracteres.
- */
-export const MAX_HISTORY_CHARS = 10000;
-
 const VALID_ROLES = new Set(["user", "assistant"]);
-
-/**
- * Recorta el historial desde el final para que quepa en el presupuesto.
- *
- * Se recorta en vez de rechazar: una conversación larga y legítima debe seguir
- * funcionando, solo que con menos memoria. El último mensaje del usuario siempre
- * se conserva, aunque por sí solo exceda el presupuesto, porque sin él no hay
- * consulta que responder.
- */
-export function trimHistory(messages, maxChars = MAX_HISTORY_CHARS) {
-  if (!Array.isArray(messages) || messages.length === 0) return [];
-
-  const recortado = [];
-  let total = 0;
-
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const largo = (messages[i]?.content || "").length;
-    if (recortado.length > 0 && total + largo > maxChars) break;
-    recortado.unshift(messages[i]);
-    total += largo;
-  }
-
-  return recortado;
-}
 
 // Límite por IP. Configurable porque el valor correcto depende de cómo lleguen los
 // estudiantes: si la universidad los saca a internet detrás de NAT, TODO el campus
@@ -92,8 +53,23 @@ const MAX_GENERACIONES_CONCURRENTES = Number(process.env.MAX_CONCURRENT_CHATS ||
 let generacionesEnCurso = 0;
 
 /**
- * Pre-chequeo síncrono de rate limit, para poder rechazar con 429 ANTES de
- * comprometerse a abrir un stream de respuesta (ver src/routes/api.chat.ts).
+ * Tope de generaciones simultáneas POR CLIENTE.
+ *
+ * Sin esto, un solo cliente dentro de su cuota por IP (20 mensajes / 5 min)
+ * podía lanzar 4 peticiones en paralelo, ocupar todos los cupos y dejar al
+ * resto con 503 mientras duraran sus generaciones. Por defecto, la mitad de los
+ * cupos: deja margen a estudiantes que comparten IP por NAT sin permitir el
+ * acaparamiento.
+ */
+const MAX_GENERACIONES_POR_CLIENTE = Math.max(
+  1,
+  Number(process.env.MAX_CONCURRENT_CHATS_PER_CLIENT) ||
+    Math.ceil(MAX_GENERACIONES_CONCURRENTES / 2),
+);
+const generacionesPorCliente = new Map();
+
+/**
+ * Pre-chequeo síncrono de rate limit antes de leer el cuerpo de la petición.
  */
 export function isChatRateLimited(rateLimitKey) {
   return chatLimiter.isLimited(rateLimitKey);
@@ -179,6 +155,14 @@ export async function runChatHandler(body, onChunk, rateLimitKey = "unknown") {
     return { ok: true, outcome: "answered" };
   }
 
+  // Interruptor del servidor: una configuración desconocida tampoco autoriza IA.
+  // Se evalúa antes de ocupar un cupo o hacer cualquier petición remota.
+  const responseMode = (process.env.CHAT_RESPONSE_MODE ?? "guarded").trim().toLowerCase();
+  if (responseMode !== "guarded") {
+    onChunk(LIMITED_MODE_REPLY);
+    return { ok: true, outcome: "limited" };
+  }
+
   // Las respuestas del cliente no son evidencia. Un seguimiento se reconstruye
   // desde la consulta de usuario admitida más reciente, nunca desde un rechazo
   // o una respuesta potencialmente inventada. Una pregunta nueva cambia de tema.
@@ -193,17 +177,25 @@ export async function runChatHandler(body, onChunk, rateLimitKey = "unknown") {
       error: "El asistente está atendiendo muchas consultas. Intenta de nuevo en unos segundos.",
     };
   }
+  const enCursoCliente = generacionesPorCliente.get(rateLimitKey) ?? 0;
+  if (enCursoCliente >= MAX_GENERACIONES_POR_CLIENTE) {
+    return {
+      ok: false,
+      status: 429,
+      error: "Espera a que termine tu consulta anterior antes de enviar otra.",
+    };
+  }
   generacionesEnCurso++;
+  generacionesPorCliente.set(rateLimitKey, enCursoCliente + 1);
 
   let streamStarted = false;
   try {
-    const { systemPrompt, foundDocs } = await buildSystemPrompt(query);
-    const hasEvidence = Array.isArray(foundDocs) && foundDocs.some(
-      (doc) => typeof doc.url === "string" && doc.url.trim() &&
-        typeof doc.contenido === "string" && doc.contenido.trim(),
-    );
+    const { systemPrompt, contextDocs } = await buildSystemPrompt(query);
+    // Solo cuentan los fragmentos limpios que realmente recibe el modelo.
+    const hasEvidence = Array.isArray(contextDocs) && contextDocs.length > 0;
     if (!hasEvidence) {
       onChunk(INSUFFICIENT_EVIDENCE_REPLY);
+      await logQuestion({ pregunta: lastUserMessage, conContexto: false });
       return { ok: true, outcome: "insufficient_evidence" };
     }
 
@@ -231,9 +223,16 @@ export async function runChatHandler(body, onChunk, rateLimitKey = "unknown") {
     }
 
     if (!accumulated.trim()) throw new Error("Respuesta vacía del proveedor");
+    // Solo se publican enlaces institucionales o presentes en la evidencia.
+    const { text: publicable, removed } = filterOutputLinks(
+      accumulated,
+      collectEvidenceUrls(contextDocs),
+    );
+    if (removed)
+      console.warn(`[SCOPE] ${removed} enlace(s) sin respaldo omitido(s) de la respuesta`);
     // El lector exige finalización válida; prefijos, errores y streams truncados
     // no llegan al cliente. Los detectores revisaron TODO el texto acumulado.
-    onChunk(accumulated);
+    onChunk(publicable);
     streamStarted = true;
     await logQuestion({ pregunta: lastUserMessage, conContexto: true });
     return { ok: true, outcome: "answered" };
@@ -247,5 +246,8 @@ export async function runChatHandler(body, onChunk, rateLimitKey = "unknown") {
     };
   } finally {
     generacionesEnCurso--;
+    const restantes = (generacionesPorCliente.get(rateLimitKey) ?? 1) - 1;
+    if (restantes > 0) generacionesPorCliente.set(rateLimitKey, restantes);
+    else generacionesPorCliente.delete(rateLimitKey);
   }
 }

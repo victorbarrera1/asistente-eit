@@ -1,7 +1,10 @@
 /**
- * Re-scraping automático (Vercel Cron — ver vercel.json).
- * Corre diariamente y procesa un lote rotativo de páginas, de modo que
- * todo el contenido se refresca completo cada ~8 días sin intervención manual.
+ * Re-scraping por lote rotativo, disparado manualmente con CRON_SECRET.
+ *
+ * Ya no está programado en vercel.json: la ingesta de producción corre en la VM
+ * de ingesta (deploy/scraper/), sin el límite de 60 s de una función. Este
+ * endpoint queda para refrescar la demo a mano. Con el modo incremental, las
+ * páginas sin cambios no consumen embeddings.
  */
 import { PAGES, scrapePage } from "./_lib/scrape.js";
 import { authorizeCronRequest } from "./_lib/cron-auth.js";
@@ -24,8 +27,8 @@ export default async function handler(req, res) {
   const results = [];
   for (const page of batch) {
     try {
-      const chunks = await scrapePage(page);
-      results.push({ url: page.url, chunks });
+      const { chunks, estado } = await scrapePage(page);
+      results.push({ url: page.url, chunks, estado });
     } catch (e) {
       results.push({ url: page.url, error: e.message });
     }

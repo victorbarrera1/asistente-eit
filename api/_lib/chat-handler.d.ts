@@ -1,5 +1,10 @@
 type ChatMessage = { role: "user" | "assistant"; content: string };
-export type ChatOutcome = "answered" | "out_of_scope" | "clarification" | "insufficient_evidence";
+export type ChatOutcome =
+  | "answered"
+  | "out_of_scope"
+  | "clarification"
+  | "insufficient_evidence"
+  | "limited";
 
 export function validateChatRequest(
   body: unknown,

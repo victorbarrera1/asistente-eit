@@ -1,0 +1,90 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2560" height="1440" viewBox="0 0 2560 1440" role="img" aria-labelledby="title description">
+  <title id="title">Cómo funciona el chatbot EIT UDP: stack visual</title>
+  <desc id="description">Diagrama simple con logos vectoriales de las tecnologías del chatbot EIT UDP, desde la interfaz hasta RAG, modelos, ingesta y despliegue.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#101820"/><stop offset="1" stop-color="#071019"/></linearGradient>
+    <linearGradient id="grad" x1="0" x2="1"><stop stop-color="#eb3150"/><stop offset="1" stop-color="#ff9163"/></linearGradient>
+    <filter id="shadow" x="-15%" y="-20%" width="130%" height="140%"><feDropShadow dx="0" dy="9" stdDeviation="11" flood-opacity=".35"/></filter>
+    <marker id="arrow" markerWidth="14" markerHeight="14" refX="11" refY="7" orient="auto"><path d="M0,0 L14,7 L0,14Z" fill="#6ed3ff"/></marker>
+    <style>
+      .h1{font-family:Arial,Helvetica,sans-serif;font-size:56px;font-weight:800;fill:#f7fbff}.sub{font-family:Arial,Helvetica,sans-serif;font-size:24px;fill:#aabac7}.kicker{font-family:Arial,Helvetica,sans-serif;font-size:17px;font-weight:800;letter-spacing:2.5px;fill:#69d8ff}.number{font-family:Arial,Helvetica,sans-serif;font-size:28px;font-weight:800;fill:#08131b}.step{font-family:Arial,Helvetica,sans-serif;font-size:28px;font-weight:800;fill:#f6fbff}.copy{font-family:Arial,Helvetica,sans-serif;font-size:19px;fill:#b9c8d2}.logo{font-family:Arial,Helvetica,sans-serif;font-size:18px;font-weight:800;fill:#eff7fd}.tiny{font-family:Arial,Helvetica,sans-serif;font-size:16px;fill:#94a7b5}.band{fill:#102331;stroke:#29465a;stroke-width:2}.tile{fill:#162b3a;stroke:#36566b;stroke-width:2}.tile2{fill:#11212e;stroke:#315367;stroke-width:2}.pill{fill:#203b4e;stroke:#47738c;stroke-width:1.5}.line{stroke:#668392;stroke-width:3;fill:none}.arrow{stroke:#6ed3ff;stroke-width:4;fill:none;marker-end:url(#arrow)}
+    </style>
+    <!-- vector marks, crafted to remain embedded and readable offline -->
+    <g id="react"><ellipse cx="0" cy="0" rx="29" ry="10" fill="none" stroke="#61dafb" stroke-width="4"/><ellipse cx="0" cy="0" rx="29" ry="10" fill="none" stroke="#61dafb" stroke-width="4" transform="rotate(60)"/><ellipse cx="0" cy="0" rx="29" ry="10" fill="none" stroke="#61dafb" stroke-width="4" transform="rotate(-60)"/><circle r="6" fill="#61dafb"/></g>
+    <g id="tanstack"><rect x="-28" y="-23" width="25" height="22" rx="4" fill="#ff4f4f"/><rect x="3" y="-23" width="25" height="22" rx="4" fill="#ff4f4f"/><rect x="-28" y="5" width="25" height="22" rx="4" fill="#00a6ff"/><rect x="3" y="5" width="25" height="22" rx="4" fill="#00a6ff"/></g>
+    <g id="vite"><path d="M-26-25 L0-34 L30-22 L7 31 L-2 5 L-18 25Z" fill="#8b5cf6"/><path d="M4-25 L-2 1 L15-2 L-10 29 L-4 7 L-19 9Z" fill="#ffd62e"/></g>
+    <g id="tailwind" fill="none" stroke="#38bdf8" stroke-width="7" stroke-linecap="round"><path d="M-31-7 C-20-24,-5-24,7-7 C17,7,27,7,34-5"/><path d="M-31 10 C-20-7,-5-7,7 10 C17 24,27 24,34 12"/></g>
+    <g id="typescript"><rect x="-29" y="-29" width="58" height="58" rx="7" fill="#3178c6"/><text x="0" y="15" text-anchor="middle" font-family="Arial" font-size="30" font-weight="800" fill="white">TS</text></g>
+    <g id="node"><path d="M0-32 L28-16 L28 16 L0 32 L-28 16 L-28-16Z" fill="#5fa04e"/><text x="0" y="7" text-anchor="middle" font-family="Arial" font-size="17" font-weight="800" fill="white">JS</text></g>
+    <g id="nitro"><path d="M-28 20 L-10-26 L0 0 L12-26 L30 20Z" fill="#ff4c39"/><path d="M-18 18 L-7-12 L1 10 L12-12 L22 18Z" fill="#ffd35a"/></g>
+    <g id="supabase"><path d="M7-33 L-25 5 H-5 L-7 33 L25-5 H5Z" fill="#3ecf8e"/></g>
+    <g id="postgres"><ellipse cy="-19" rx="29" ry="11" fill="#336791"/><path d="M-29-19 V18 C-29 34 58 34 58 18 V-19" fill="#336791"/><ellipse cy="18" rx="29" ry="11" fill="#27577c"/><circle cx="-10" cy="-19" r="3" fill="white"/><circle cx="10" cy="-19" r="3" fill="white"/></g>
+    <g id="pgvector"><circle cx="-18" cy="-15" r="6" fill="#60d394"/><circle cx="-18" cy="15" r="6" fill="#60d394"/><circle cx="16" cy="0" r="6" fill="#60d394"/><path d="M-11-13 L9-2 M-11 13 L9 2" stroke="#60d394" stroke-width="5"/><path d="M1-25 L22-25 L22-4" fill="none" stroke="#d9fff1" stroke-width="4"/></g>
+    <g id="ollama"><circle r="31" fill="#f8fafc"/><circle cx="-9" cy="-5" r="4" fill="#0d1720"/><circle cx="9" cy="-5" r="4" fill="#0d1720"/><path d="M-14 9 Q0 22 14 9 M-22-19 L-13-28 M22-19 L13-28" fill="none" stroke="#0d1720" stroke-width="4" stroke-linecap="round"/></g>
+    <g id="qwen"><circle r="29" fill="#6256e8"/><path d="M-9-18 C-29-4-18 21 2 20 C18 19 24 3 16-8" fill="none" stroke="white" stroke-width="7" stroke-linecap="round"/><path d="M7 10 L25 28" stroke="white" stroke-width="7" stroke-linecap="round"/></g>
+    <g id="bge"><circle r="8" fill="#a6f26f"/><circle cx="-24" cy="-18" r="6" fill="#a6f26f"/><circle cx="24" cy="-18" r="6" fill="#a6f26f"/><circle cx="-24" cy="20" r="6" fill="#a6f26f"/><circle cx="24" cy="20" r="6" fill="#a6f26f"/><path d="M-17-15 L-6-5 M17-15 L6-5 M-17 17 L-6 6 M17 17 L6 6" stroke="#a6f26f" stroke-width="4"/></g>
+    <g id="gemini"><path d="M0-34 C4-8 8-4 34 0 C8 4 4 8 0 34 C-4 8-8 4-34 0 C-8-4-4-8 0-34Z" fill="#8ab4f8"/></g>
+    <g id="cheerio"><path d="M20-25 C-22-34-39 28-1 30 C12 31 20 22 24 14" fill="none" stroke="#7bbf55" stroke-width="10" stroke-linecap="round"/><path d="M8-17 C20-30 31-25 33-13 C19-10 11-11 8-17Z" fill="#c4ed90"/></g>
+    <g id="gitlab"><path d="M-30 0 L-17-25 L-6-3 L0-29 L8-3 L20-25 L31 0 L0 31Z" fill="#fc6d26"/><path d="M-30 0 L0 31 L31 0 L8-3 L0-29 L-6-3Z" fill="#e24329"/></g>
+    <g id="dokku"><path d="M0-32 L27-16 L27 16 L0 32 L-27 16 L-27-16Z" fill="#4e82b3"/><path d="M-10-16 H2 C20-16 20 16 2 16 H-10Z" fill="none" stroke="white" stroke-width="5"/><path d="M-1-8 H4 C11-8 11 8 4 8 H-1" fill="none" stroke="white" stroke-width="3"/></g>
+    <g id="vercel"><path d="M0-32 L34 28 H-34Z" fill="white"/></g>
+    <g id="lucide" fill="none" stroke="#f7c948" stroke-width="5" stroke-linecap="round"><circle r="12"/><path d="M0-30V-22 M0 30V22 M-30 0H-22 M30 0H22 M-21-21L-15-15 M21 21L15 15 M21-21L15-15 M-21 21L-15 15"/></g>
+    <g id="recharts"><rect x="-28" y="-28" width="56" height="56" rx="8" fill="#25a2f5"/><path d="M-18 15 L-5 3 L5 10 L19-14" fill="none" stroke="white" stroke-width="5"/><circle cx="-18" cy="15" r="3" fill="white"/><circle cx="-5" cy="3" r="3" fill="white"/><circle cx="5" cy="10" r="3" fill="white"/><circle cx="19" cy="-14" r="3" fill="white"/></g>
+  </defs>
+  <rect width="2560" height="1440" fill="url(#bg)"/>
+  <rect x="70" y="62" width="13" height="92" rx="6" fill="url(#grad)"/>
+  <text class="h1" x="112" y="111">¿CÓMO FUNCIONA EL CHATBOT EIT UDP?</text>
+  <text class="sub" x="112" y="151">Versión simple · cada logo representa una tecnología real del stack</text>
+  <rect x="2065" y="70" width="410" height="74" rx="18" fill="#153143" stroke="#315970" stroke-width="2"/>
+  <text class="kicker" x="2270" y="101" text-anchor="middle">RUTA PRINCIPAL</text><text class="tiny" x="2270" y="127" text-anchor="middle">pregunta → evidencia → respuesta</text>
+
+  <text class="kicker" x="70" y="232">1. UNA PREGUNTA RECORRE ESTAS CINCO ETAPAS</text>
+  <!-- flow cards -->
+  <g filter="url(#shadow)"><rect class="band" x="70" y="260" width="445" height="340" rx="24"/><rect class="band" x="558" y="260" width="445" height="340" rx="24"/><rect class="band" x="1046" y="260" width="445" height="340" rx="24"/><rect class="band" x="1534" y="260" width="445" height="340" rx="24"/><rect class="band" x="2022" y="260" width="445" height="340" rx="24"/></g>
+  <g><circle cx="112" cy="302" r="25" fill="#6ed3ff"/><text class="number" x="112" y="312" text-anchor="middle">1</text><text class="step" x="153" y="312">Interfaz</text>
+    <text class="copy" x="112" y="352">El estudiante escribe una consulta</text><text class="copy" x="112" y="378">en el chat o widget.</text>
+    <use href="#react" x="138" y="455"/><text class="logo" x="138" y="515" text-anchor="middle">React</text><use href="#tanstack" x="240" y="455"/><text class="logo" x="240" y="515" text-anchor="middle">TanStack</text><use href="#vite" x="342" y="455"/><text class="logo" x="342" y="515" text-anchor="middle">Vite</text><use href="#tailwind" x="443" y="455"/><text class="logo" x="443" y="515" text-anchor="middle">Tailwind</text>
+    <use href="#typescript" x="189" y="552" transform="scale(.65) translate(102 298)"/><text class="tiny" x="235" y="558">TypeScript · localStorage</text></g>
+  <g><circle cx="600" cy="302" r="25" fill="#c891ff"/><text class="number" x="600" y="312" text-anchor="middle">2</text><text class="step" x="641" y="312">API segura</text>
+    <text class="copy" x="600" y="352">POST /api/chat entra al</text><text class="copy" x="600" y="378">servidor Node y se valida.</text>
+    <use href="#node" x="666" y="455"/><text class="logo" x="666" y="515" text-anchor="middle">Node.js</text><use href="#nitro" x="790" y="455"/><text class="logo" x="790" y="515" text-anchor="middle">Nitro / H3</text>
+    <rect class="pill" x="610" y="539" width="154" height="33" rx="16"/><text class="tiny" x="687" y="561" text-anchor="middle">rate limit</text><rect class="pill" x="775" y="539" width="177" height="33" rx="16"/><text class="tiny" x="864" y="561" text-anchor="middle">scope guard</text></g>
+  <g><circle cx="1088" cy="302" r="25" fill="#63e3ac"/><text class="number" x="1088" y="312" text-anchor="middle">3</text><text class="step" x="1129" y="312">Busca evidencia</text>
+    <text class="copy" x="1088" y="352">Convierte la pregunta en vector</text><text class="copy" x="1088" y="378">y recupera documentos oficiales.</text>
+    <use href="#supabase" x="1130" y="455"/><text class="logo" x="1130" y="515" text-anchor="middle">Supabase</text><use href="#postgres" x="1250" y="455"/><text class="logo" x="1250" y="515" text-anchor="middle">PostgreSQL</text><use href="#pgvector" x="1380" y="455"/><text class="logo" x="1380" y="515" text-anchor="middle">pgvector</text>
+    <text class="tiny" x="1280" y="558" text-anchor="middle">RAG · búsqueda semántica · re-rank</text></g>
+  <g><circle cx="1576" cy="302" r="25" fill="#ff9b69"/><text class="number" x="1576" y="312" text-anchor="middle">4</text><text class="step" x="1617" y="312">Responde con IA</text>
+    <text class="copy" x="1576" y="352">El modelo recibe solo el contexto</text><text class="copy" x="1576" y="378">recuperado y el prompt EIT.</text>
+    <use href="#ollama" x="1606" y="455"/><text class="logo" x="1606" y="515" text-anchor="middle">Ollama</text><use href="#qwen" x="1714" y="455"/><text class="logo" x="1714" y="515" text-anchor="middle">Qwen 2.5</text><use href="#bge" x="1826" y="455"/><text class="logo" x="1826" y="515" text-anchor="middle">BGE-M3</text><use href="#gemini" x="1918" y="455"/><text class="logo" x="1918" y="515" text-anchor="middle">Gemini</text>
+    <text class="tiny" x="1756" y="558" text-anchor="middle">Ollama = producción · Gemini = demo</text></g>
+  <g><circle cx="2064" cy="302" r="25" fill="#6ed3ff"/><text class="number" x="2064" y="312" text-anchor="middle">5</text><text class="step" x="2105" y="312">Entrega y mejora</text>
+    <text class="copy" x="2064" y="352">Se revisa la salida y se muestra</text><text class="copy" x="2064" y="378">la respuesta con sus fuentes.</text>
+    <path d="M2100 462 H2180" stroke="#6ed3ff" stroke-width="6"/><path d="M2140 422 V502" stroke="#6ed3ff" stroke-width="6"/><path d="M2220 430 C2250 408 2282 429 2262 454 C2245 475 2213 487 2214 509 C2215 486 2184 475 2167 454 C2147 429 2180 408 2210 430" fill="#ef5370"/>
+    <text class="logo" x="2140" y="545" text-anchor="middle">Fuentes</text><text class="logo" x="2220" y="545" text-anchor="middle">Feedback</text><text class="tiny" x="2260" y="576" text-anchor="middle">preguntas + satisfacción</text></g>
+  <path class="arrow" d="M515 430 H551 M1003 430 H1039 M1491 430 H1527 M1979 430 H2015"/>
+
+  <text class="kicker" x="70" y="675">2. ¿DE DÓNDE SALE EL CONOCIMIENTO?</text>
+  <g filter="url(#shadow)"><rect class="tile2" x="70" y="704" width="2397" height="213" rx="23"/></g>
+  <g><text class="step" x="114" y="758" font-size="24">Sitios oficiales</text><text class="copy" x="114" y="793">EIT · DAE · UDP</text><text class="tiny" x="114" y="824">56 páginas seleccionadas</text></g>
+  <path class="arrow" d="M399 805 H530"/>
+  <g><use href="#cheerio" x="593" y="785"/><text class="step" x="653" y="770" font-size="24">Cheerio</text><text class="copy" x="653" y="801">Extrae y limpia HTML</text><text class="tiny" x="653" y="830">contenido útil</text></g>
+  <path class="arrow" d="M910 805 H1041"/>
+  <g><circle cx="1107" cy="785" r="29" fill="#51697b"/><text x="1107" y="794" text-anchor="middle" font-family="Arial" font-size="23" font-weight="800" fill="white">#</text><text class="step" x="1157" y="770" font-size="24">Chunks</text><text class="copy" x="1157" y="801">fragmentos semánticos</text><text class="tiny" x="1157" y="830">con títulos y solapamiento</text></g>
+  <path class="arrow" d="M1454 805 H1585"/>
+  <g><use href="#bge" x="1649" y="785"/><text class="step" x="1702" y="770" font-size="24">Embeddings</text><text class="copy" x="1702" y="801">BGE-M3 u otro espacio</text><text class="tiny" x="1702" y="830">vector por cada fragmento</text></g>
+  <path class="arrow" d="M2004 805 H2135"/>
+  <g><use href="#supabase" x="2198" y="785"/><text class="step" x="2250" y="770" font-size="24">Base RAG</text><text class="copy" x="2250" y="801">Supabase + pgvector</text><text class="tiny" x="2250" y="830">eit_docs / batch_id</text></g>
+  <text class="tiny" x="114" y="884">Actualización: npm run scrape manualmente o Vercel Cron procesa 6 páginas al día. Cada lote se verifica antes de reemplazar la versión anterior.</text>
+
+  <text class="kicker" x="70" y="992">3. OPERACIÓN Y DESPLIEGUE</text>
+  <g filter="url(#shadow)"><rect class="tile2" x="70" y="1021" width="1510" height="278" rx="23"/><rect class="tile2" x="1618" y="1021" width="849" height="278" rx="23"/></g>
+  <g><use href="#gitlab" x="145" y="1110"/><text class="step" x="204" y="1094" font-size="25">GitLab CI</text><text class="copy" x="204" y="1125">npm ci · TypeScript · tests · build</text><text class="tiny" x="204" y="1158">pipeline de verificación</text></g>
+  <path class="arrow" d="M610 1120 H751"/>
+  <g><use href="#dokku" x="815" y="1110"/><text class="step" x="875" y="1094" font-size="25">Dokku</text><text class="copy" x="875" y="1125">Node / Nitro institucional</text><text class="tiny" x="875" y="1158">producción EIT UDP</text></g>
+  <path class="arrow" d="M1204 1120 H1345"/>
+  <g><use href="#ollama" x="1408" y="1110"/><text class="step" x="1465" y="1094" font-size="25">GPU interna</text><text class="copy" x="1465" y="1125">Ollama · Qwen · BGE-M3</text><text class="tiny" x="1465" y="1158">sin proveedor cloud</text></g>
+  <g><use href="#vercel" x="1687" y="1110"/><text class="step" x="1742" y="1094" font-size="25">Vercel</text><text class="copy" x="1742" y="1125">Functions · rewrites · Cron</text><text class="tiny" x="1742" y="1158">demo pública con Gemini</text><path d="M1685 1214 H2398" stroke="#34576b" stroke-width="2"/><text class="tiny" x="1742" y="1252">API: chat · feedback · admin · estadísticas · scraping</text></g>
+
+  <text class="kicker" x="70" y="1360">CAPA DE EXPERIENCIA Y ADMINISTRACIÓN</text>
+  <g><rect class="pill" x="70" y="1380" width="255" height="40" rx="20"/><use href="#lucide" x="99" y="1400" transform="scale(.37) translate(168 2384)"/><text class="tiny" x="199" y="1406" text-anchor="middle">Lucide icons</text><rect class="pill" x="340" y="1380" width="255" height="40" rx="20"/><use href="#recharts" x="368" y="1400" transform="scale(.37) translate(627 2384)"/><text class="tiny" x="469" y="1406" text-anchor="middle">Recharts / admin</text><rect class="pill" x="610" y="1380" width="305" height="40" rx="20"/><path d="M646 1390 C667 1375 686 1390 680 1404 C674 1420 650 1420 642 1405Z" fill="#dbe7f1"/><text class="tiny" x="790" y="1406" text-anchor="middle">Liquid Gooey UI</text><text class="tiny" x="962" y="1406">Panel /admin: sesión HMAC con cookie HttpOnly · métricas y feedback.</text></g>
+</svg>

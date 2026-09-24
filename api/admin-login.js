@@ -7,6 +7,7 @@
 import { runAdminLoginHandler, origenPermitido } from "./_lib/admin-handler.js";
 import { buildSessionCookie } from "./_lib/admin-session.js";
 import { getClientKey } from "./_lib/rate-limit.js";
+import { validateParsedJsonBody } from "./_lib/http-body.js";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -19,7 +20,9 @@ export default async function handler(req, res) {
     return res.status(403).json({ error: "Origen no permitido." });
   }
 
-  const { password } = req.body || {};
+  const parsed = validateParsedJsonBody(req);
+  if (!parsed.ok) return res.status(parsed.status).json({ error: parsed.error });
+  const { password } = parsed.body;
 
   // La clave de rate limiting DEBE salir de getClientKey(): antes se derivaba
   // aquí del primer valor de x-forwarded-for, que lo controla el cliente, así

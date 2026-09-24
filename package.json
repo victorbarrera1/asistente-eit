@@ -10,9 +10,12 @@
     "preview": "vite preview",
     "start": "node .output/server/index.mjs",
     "test": "node --test \"api/**/*.test.js\"",
+    "test:scope": "node --test api/_lib/scope-contract.test.js",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "scrape": "node --env-file=.env scripts/scrape-eit.js"
+    "scrape": "node --env-file=.env scripts/scrape-eit.js",
+    "eval:retrieval": "node --env-file=.env scripts/eval-retrieval.js",
+    "purge:data": "node --env-file=.env scripts/purge-old-data.js"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.2.1",

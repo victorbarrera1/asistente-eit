@@ -1,0 +1,16 @@
+# Retención de datos: borra preguntas y feedback más antiguos que DATA_RETENTION_DAYS.
+[Unit]
+Description=Asistente EIT UDP - purga de datos antiguos
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=asistente
+Group=asistente
+WorkingDirectory=/opt/asistente-eit
+ExecStart=/usr/bin/node --env-file=.env scripts/purge-old-data.js
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true

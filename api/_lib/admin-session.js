@@ -19,9 +19,24 @@ function isProductionEnv() {
   return process.env.VERCEL_ENV === "production" || process.env.NODE_ENV === "production";
 }
 
+// Material criptográfico, no una contraseña: 32 caracteres aleatorios como mínimo
+// (`openssl rand -base64 48`). Un secreto corto permite falsificar cookies de
+// sesión por fuerza bruta offline a partir de una sola cookie legítima.
+export const MIN_SECRET_LENGTH = 32;
+
 function getSessionSecret() {
   const dedicated = (process.env.ADMIN_SESSION_SECRET || "").trim();
-  if (dedicated) return dedicated;
+  if (dedicated) {
+    if (dedicated.length < MIN_SECRET_LENGTH && isProductionEnv()) {
+      throw new Error(
+        `ADMIN_SESSION_SECRET debe tener al menos ${MIN_SECRET_LENGTH} caracteres en producción.`,
+      );
+    }
+    if (dedicated === (process.env.ADMIN_PASSWORD || "").trim() && isProductionEnv()) {
+      throw new Error("ADMIN_SESSION_SECRET no puede ser igual a ADMIN_PASSWORD.");
+    }
+    return dedicated;
+  }
 
   if (isProductionEnv()) {
     // Fail-closed en producción: no reutilizar ADMIN_PASSWORD como firma.
@@ -96,14 +111,46 @@ export function createSessionToken() {
  * Cualquier error (incluido un secreto de firma no configurado) se trata como
  * sesión inválida, nunca como una excepción sin controlar.
  */
+/**
+ * Sesiones cerradas explícitamente (nonce → expiración).
+ *
+ * El logout solo borraba la cookie del navegador: una cookie copiada antes
+ * seguía siendo válida hasta expirar. Esta lista la invalida en el servidor.
+ * Vive en memoria del proceso (Dokku corre uno); para invalidar en todas las
+ * instancias o tras un reinicio sigue existiendo SESSION_NOT_BEFORE.
+ */
+const sesionesRevocadas = new Map();
+const MAX_REVOCADAS = 5000;
+
+function purgarRevocadas(now = Date.now()) {
+  for (const [nonce, expiresAt] of sesionesRevocadas) {
+    if (expiresAt < now) sesionesRevocadas.delete(nonce);
+  }
+}
+
+/** Invalida en el servidor la sesión de este token (logout). */
+export function revokeSessionToken(token) {
+  if (!isValidSessionToken(token)) return false;
+  const [expiresAtStr, nonce] = token.split(".");
+  purgarRevocadas();
+  if (sesionesRevocadas.size >= MAX_REVOCADAS) {
+    sesionesRevocadas.delete(sesionesRevocadas.keys().next().value);
+  }
+  sesionesRevocadas.set(nonce, Number(expiresAtStr));
+  return true;
+}
+
 export function isValidSessionToken(token) {
-  if (!token || typeof token !== "string") return false;
+  if (!token || typeof token !== "string" || token.length > 256) return false;
   const parts = token.split(".");
   if (parts.length !== 3) return false;
   const [expiresAtStr, nonce, signature] = parts;
 
   const expiresAt = Number(expiresAtStr);
   if (!Number.isFinite(expiresAt) || Date.now() > expiresAt) return false;
+  // Un token con expiración más allá del TTL no pudo emitirlo este servidor.
+  if (expiresAt - Date.now() > SESSION_TTL_MS) return false;
+  if (sesionesRevocadas.has(nonce)) return false;
 
   // Revocación masiva: permite invalidar sesiones ya emitidas sin rotar el secreto.
   if (emitidaAntesDelCorte(expiresAt)) return false;

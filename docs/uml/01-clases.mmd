@@ -1,0 +1,151 @@
+---
+title: Diagrama de clases — Asistente EIT UDP
+---
+classDiagram
+  direction LR
+
+  class ChatHandler {
+    +MAX_MESSAGES: Integer = 12
+    +MAX_MESSAGE_LENGTH: Integer = 3000
+    +MAX_RESPONSE_CHARS: Integer = 16000
+    -generacionesEnCurso: Integer
+    +runChatHandler(body, onChunk, clientKey) ResultadoChat
+    +validateChatRequest(body) Validacion
+  }
+
+  class RateLimiter {
+    -windowMs: Integer
+    -maxAttempts: Integer
+    -attempts: Map~String, Entrada~
+    +isLimited(key: String) Boolean
+    +register(key: String) void
+  }
+
+  class ScopeGuard {
+    +evaluateScope(mensaje: String, historial: Mensaje[]) EvaluacionAlcance
+    +respuestaFueraDeAlcance(texto: String) Boolean
+  }
+
+  class EvaluacionAlcance {
+    +allowed: Boolean
+    +reason: String
+    +query: String
+  }
+
+  class RagService {
+    +buildSystemPrompt(consulta: String) PromptConContexto
+    +searchDocs(embedding, k, umbral, texto) Fragmento[]
+    +rerankDocs(docs, consulta) Fragmento[]
+    +prepareContext(docs, consulta) Contexto
+    +logQuestion(pregunta, conContexto) void
+  }
+
+  class ProveedorIA {
+    <<interface>>
+    +embedTexts(textos: String[]) Vector[]
+    +streamRespuesta(mensajes, systemPrompt, onChunk) void
+  }
+
+  class OllamaProvider {
+    +baseUrl: String
+    +modelo: String = "qwen2.5:7b"
+    +modeloEmbeddings: String = "bge-m3"
+    +dimension: Integer = 1024
+  }
+
+  class GeminiProvider {
+    +apiKey: String
+    +modelo: String = "gemini-2.5-flash"
+    +modeloEmbeddings: String = "text-embedding-004"
+    +dimension: Integer = 768
+  }
+
+  class Scraper {
+    +PIPELINE_VERSION: String
+    +scrapePage(pagina: Pagina, force: Boolean) ResultadoIngesta
+    +stripHtml(html: String, url: String) String
+    +chunkText(texto: String, size: Integer, overlap: Integer) String[]
+  }
+
+  class Pagina {
+    +url: String
+    +escuela: String
+    +seccion: String
+    +titulo: String
+  }
+
+  class RegistroPagina {
+    +contentHash: String
+    +etag: String
+    +chunks: Integer
+    +batchId: UUID
+    +checkedAt: DateTime
+    +changedAt: DateTime
+  }
+
+  class VersionPagina {
+    +contentHash: String
+    +contenido: String
+    +capturedAt: DateTime
+  }
+
+  class Fragmento {
+    +id: Integer
+    +titulo: String
+    +contenido: String
+    +embedding: Vector
+    +embeddingModel: String
+    +batchId: UUID
+  }
+
+  class AvisoUrgente {
+    +titulo: String
+    +mensaje: String
+    +tipo: String
+    +validoHasta: DateTime
+  }
+
+  class PreguntaLog {
+    +pregunta: String
+    +conContexto: Boolean
+    +createdAt: DateTime
+  }
+
+  class Feedback {
+    +pregunta: String
+    +respuesta: String
+    +score: String
+    +comentario: String
+  }
+
+  class AdminHandler {
+    +login(password: String, clientKey: String) SesionAdmin
+    +stats(token: String) Estadisticas
+    +evaluarFortalezaClave(clave: String) Boolean
+  }
+
+  class SesionAdmin {
+    +token: String
+    +expiresAt: DateTime
+    +isValid() Boolean
+  }
+
+  ChatHandler --> RateLimiter : limita por IP
+  ChatHandler --> ScopeGuard : admite o rechaza
+  ScopeGuard ..> EvaluacionAlcance : crea
+  ChatHandler --> RagService : consulta admitida
+  RagService --> ProveedorIA : embeddings y generación
+  ProveedorIA <|.. OllamaProvider : producción
+  ProveedorIA <|.. GeminiProvider : demo
+  RagService --> "0..3" Fragmento : contexto
+  RagService --> "0..3" AvisoUrgente : incluye
+  RagService ..> PreguntaLog : registra
+  Scraper --> ProveedorIA : embeddings
+  Scraper --> "1..*" Pagina : recorre
+  Pagina "1" *-- "1..*" Fragmento : se divide en
+  Pagina "1" *-- "0..1" RegistroPagina : estado de ingesta
+  Pagina "1" *-- "0..*" VersionPagina : historial
+  AdminHandler --> RateLimiter : login
+  AdminHandler ..> SesionAdmin : emite
+  AdminHandler ..> PreguntaLog : agrega
+  AdminHandler ..> Feedback : agrega

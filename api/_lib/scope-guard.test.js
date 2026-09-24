@@ -174,11 +174,8 @@ describe("evaluateScope — regresiones observadas en producción", () => {
     });
   }
 
-  test("una consulta sin vocabulario de la escuela ya NO se rechaza", () => {
-    // "cómo puedo tomar programación" fue rechazada en producción por no contener
-    // ninguna palabra de la lista de dominio. El rechazo por vocabulario se eliminó:
-    // una lista de términos no cubre cómo escribe la gente, y cada palabra que falta
-    // es un estudiante sin respuesta. El alcance temático lo maneja el prompt.
+  test("reconoce la toma de Programación como consulta de inscripción", () => {
+    // Mantiene esta formulación administrativa aunque no mencione ramo o UDP.
     assert.equal(evaluateScope("como puedo tomar programacion", 0).allowed, true);
   });
 
@@ -207,7 +204,7 @@ describe("evaluateScope", () => {
   });
 
   test("datos de contacto pasan aunque RAG no encuentre nada", () => {
-    // Están en el bloque estático del system prompt, así que no dependen de RAG.
+    // La admisión no exige documentos; el handler sí los exige antes de generar.
     const r = evaluateScope("cual es el correo del director de escuela", 0);
     assert.equal(r.allowed, true);
     assert.equal(r.reason, "static_info");

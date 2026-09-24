@@ -1,19 +1,35 @@
 image: dokku/ci-docker-image
 
 stages:
+  - verify
   - deploy
 
 variables:
   GIT_DEPTH: 0
+
+verify:
+  stage: verify
+  image: node:22-bookworm-slim
+  cache:
+    key:
+      files:
+        - package-lock.json
+    paths:
+      - .npm/
+  script:
+    - npm ci --cache .npm --prefer-offline
+    - npx tsc --noEmit
+    - npm test
+    - npm run build
 
 deploy:
   stage: deploy
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
   variables:
-    GIT_REMOTE_URL: ssh://dokku@${DOKKU_HOST:-dokku.internal}:22/asistente-eit
+    GIT_REMOTE_URL: ssh://dokku@${DOKKU_HOST:-172.16.40.205}:22/asistente-eit
   script: 
     - dokku-deploy
-    - ssh -p 22 dokku@${DOKKU_HOST:-dokku.internal} ps:restart asistente-eit
+    - ssh -p 22 dokku@${DOKKU_HOST:-172.16.40.205} ps:restart asistente-eit
   after_script: 
     - dokku-unlock

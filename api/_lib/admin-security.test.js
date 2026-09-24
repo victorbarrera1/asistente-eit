@@ -64,3 +64,68 @@ describe("origenPermitido", () => {
     assert.equal(origenPermitido(null, "chatudp.vercel.app"), true);
   });
 });
+
+describe("longitud mínima de secretos", () => {
+  test("CRON_SECRET corto se rechaza aunque el header coincida (fail-closed)", async () => {
+    const { authorizeCronRequest } = await import("./cron-auth.js");
+    const previo = process.env.CRON_SECRET;
+    try {
+      process.env.CRON_SECRET = "corto";
+      assert.equal(authorizeCronRequest("Bearer corto", "ip-secreto-corto").ok, false);
+      process.env.CRON_SECRET = "s".repeat(40);
+      assert.equal(authorizeCronRequest(`Bearer ${"s".repeat(40)}`, "ip-secreto-largo").ok, true);
+    } finally {
+      if (previo === undefined) delete process.env.CRON_SECRET;
+      else process.env.CRON_SECRET = previo;
+    }
+  });
+
+  test("ADMIN_SESSION_SECRET corto invalida sesiones en producción", async () => {
+    const { createSessionToken, isValidSessionToken } = await import("./admin-session.js");
+    const previo = { ...process.env };
+    try {
+      process.env.ADMIN_SESSION_SECRET = "x".repeat(40);
+      const token = createSessionToken();
+      process.env.NODE_ENV = "production";
+      assert.equal(isValidSessionToken(token), true);
+      process.env.ADMIN_SESSION_SECRET = "corto";
+      assert.equal(isValidSessionToken(token), false);
+      assert.throws(() => createSessionToken(), /al menos 32/);
+    } finally {
+      process.env = previo;
+    }
+  });
+});
+
+describe("sesión de admin", () => {
+  test("logout revoca el token en el servidor", async () => {
+    const { createSessionToken, isValidSessionToken, revokeSessionToken } =
+      await import("./admin-session.js");
+    const previo = { ...process.env };
+    try {
+      process.env.ADMIN_SESSION_SECRET = "r".repeat(40);
+      const token = createSessionToken();
+      assert.equal(isValidSessionToken(token), true);
+      assert.equal(revokeSessionToken(token), true);
+      assert.equal(isValidSessionToken(token), false);
+    } finally {
+      process.env = previo;
+    }
+  });
+
+  test("un token firmado con expiración más allá del TTL se rechaza", async () => {
+    const { isValidSessionToken } = await import("./admin-session.js");
+    const { createHmac } = await import("node:crypto");
+    const previo = { ...process.env };
+    try {
+      process.env.ADMIN_SESSION_SECRET = "t".repeat(40);
+      const payload = `${Date.now() + 365 * 86400000}.nonce`;
+      const sig = createHmac("sha256", process.env.ADMIN_SESSION_SECRET)
+        .update(payload)
+        .digest("base64url");
+      assert.equal(isValidSessionToken(`${payload}.${sig}`), false);
+    } finally {
+      process.env = previo;
+    }
+  });
+});

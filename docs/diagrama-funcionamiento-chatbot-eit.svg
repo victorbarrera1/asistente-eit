@@ -1,0 +1,186 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2560" height="1880" viewBox="0 0 2560 1880" role="img" aria-labelledby="title desc">
+  <title id="title">Asistente EIT UDP: modelo paso a paso del chatbot</title>
+  <desc id="desc">Diagrama de arquitectura del chatbot: interfaz React y TanStack, protección, RAG con Supabase pgvector, proveedores Ollama o Gemini, ingesta programada, administración y despliegues Dokku y Vercel.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#101720"/><stop offset="1" stop-color="#07131d"/></linearGradient>
+    <linearGradient id="accent" x1="0" x2="1"><stop stop-color="#e73049"/><stop offset="1" stop-color="#ff775d"/></linearGradient>
+    <linearGradient id="blue" x1="0" x2="1"><stop stop-color="#2f91ff"/><stop offset="1" stop-color="#51d5ff"/></linearGradient>
+    <linearGradient id="purple" x1="0" x2="1"><stop stop-color="#8c5cff"/><stop offset="1" stop-color="#c874ff"/></linearGradient>
+    <linearGradient id="green" x1="0" x2="1"><stop stop-color="#17bf83"/><stop offset="1" stop-color="#55e7ac"/></linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="12" stdDeviation="15" flood-color="#000" flood-opacity=".35"/></filter>
+    <marker id="arrowBlue" markerWidth="14" markerHeight="14" refX="11" refY="7" orient="auto"><path d="M0,0 L14,7 L0,14Z" fill="#51d5ff"/></marker>
+    <marker id="arrowGray" markerWidth="14" markerHeight="14" refX="11" refY="7" orient="auto"><path d="M0,0 L14,7 L0,14Z" fill="#8798a9"/></marker>
+    <style>
+      .title{font-family:Arial,Helvetica,sans-serif;font-weight:800;fill:#f7fbff}.subtitle{font-family:Arial,Helvetica,sans-serif;fill:#a9bac9;font-size:25px}.section{font-family:Arial,Helvetica,sans-serif;fill:#d9e8f4;font-size:20px;font-weight:800;letter-spacing:2px}.num{font-family:Arial,Helvetica,sans-serif;fill:#07131d;font-size:25px;font-weight:800}.cardtitle{font-family:Arial,Helvetica,sans-serif;fill:#fff;font-size:29px;font-weight:800}.body{font-family:Arial,Helvetica,sans-serif;fill:#c4d1dc;font-size:21px}.small{font-family:Arial,Helvetica,sans-serif;fill:#aebdca;font-size:18px}.tiny{font-family:Arial,Helvetica,sans-serif;fill:#9bacbb;font-size:16px}.chip{font-family:Arial,Helvetica,sans-serif;fill:#eaf6ff;font-size:17px;font-weight:700}.label{font-family:Arial,Helvetica,sans-serif;fill:#0d1b25;font-size:16px;font-weight:800}.white{fill:#f8fbfe}.muted{fill:#8798a9}.line{stroke:#425566;stroke-width:2}.card{fill:#111f2c;stroke:#314759;stroke-width:2}.card2{fill:#0c1a26;stroke:#2e4659;stroke-width:2}.step{fill:#152635;stroke:#3a586d;stroke-width:2}.note{fill:#0d2730;stroke:#276273;stroke-width:2}.pillblue{fill:#173b57;stroke:#2b87bd;stroke-width:1.5}.pillpurple{fill:#322652;stroke:#986df2;stroke-width:1.5}.pillgreen{fill:#143d37;stroke:#28b989;stroke-width:1.5}.pillred{fill:#4a2630;stroke:#dd5a6c;stroke-width:1.5}.pillgray{fill:#253442;stroke:#586e80;stroke-width:1.5}
+    </style>
+  </defs>
+  <rect width="2560" height="1880" fill="url(#bg)"/>
+  <path d="M0 245 H2560" stroke="#233746" stroke-width="2"/>
+  <rect x="72" y="69" width="13" height="103" rx="6" fill="url(#accent)"/>
+  <text class="title" x="116" y="113" font-size="54">ASISTENTE EIT UDP</text>
+  <text class="title" x="116" y="166" font-size="39" fill="#b9c9d7">Modelo paso a paso: desde la consulta hasta una respuesta respaldada</text>
+  <text class="subtitle" x="1860" y="102" text-anchor="start">Arquitectura del código actual</text>
+  <text class="subtitle" x="1860" y="140" text-anchor="start">RAG protegido · dos proveedores · operación institucional</text>
+  <rect x="2120" y="75" width="348" height="78" rx="18" fill="#172c3c" stroke="#35556a" stroke-width="2"/>
+  <text class="chip" x="2294" y="108" text-anchor="middle">RUTA PRINCIPAL</text><text class="small" x="2294" y="136" text-anchor="middle">consulta → evidencia → respuesta</text>
+
+  <!-- main realtime flow -->
+  <text class="section" x="72" y="300">FLUJO DE UNA CONSULTA</text>
+  <text class="subtitle" x="72" y="334">Cada bloque representa una decisión o tecnología que participa realmente en la conversación.</text>
+  <line x1="226" y1="420" x2="226" y2="1450" stroke="#294454" stroke-width="5"/>
+
+  <!-- step 1 -->
+  <circle cx="226" cy="432" r="34" fill="url(#blue)"/><text class="num" x="226" y="441" text-anchor="middle">1</text>
+  <rect class="step" filter="url(#shadow)" x="292" y="366" width="936" height="154" rx="20"/>
+  <text class="cardtitle" x="330" y="414">Estudiante abre el chat, widget o panel administrativo</text>
+  <text class="body" x="330" y="451">La interfaz recoge el mensaje, conserva el historial del chat en el navegador y muestra el estado de espera.</text>
+  <rect class="pillblue" x="330" y="473" width="116" height="29" rx="14"/><text class="chip" x="388" y="494" text-anchor="middle">React 19</text>
+  <rect class="pillblue" x="457" y="473" width="159" height="29" rx="14"/><text class="chip" x="536" y="494" text-anchor="middle">TypeScript 5.8</text>
+  <rect class="pillblue" x="627" y="473" width="153" height="29" rx="14"/><text class="chip" x="703" y="494" text-anchor="middle">Tailwind CSS 4</text>
+  <rect class="pillblue" x="792" y="473" width="139" height="29" rx="14"/><text class="chip" x="861" y="494" text-anchor="middle">localStorage</text>
+  <rect class="pillblue" x="943" y="473" width="203" height="29" rx="14"/><text class="chip" x="1044" y="494" text-anchor="middle">Lucide + Liquid Gooey</text>
+
+  <!-- step 2 -->
+  <circle cx="226" cy="592" r="34" fill="url(#blue)"/><text class="num" x="226" y="601" text-anchor="middle">2</text>
+  <rect class="step" filter="url(#shadow)" x="292" y="540" width="936" height="144" rx="20"/>
+  <text class="cardtitle" x="330" y="586">La app enruta la solicitud a <tspan fill="#67d8ff">POST /api/chat</tspan></text>
+  <text class="body" x="330" y="622">TanStack Start/Router y React Query montan las rutas; Vite compila el cliente y Nitro sirve SSR/Node.</text>
+  <rect class="pillblue" x="330" y="643" width="165" height="27" rx="13"/><text class="chip" x="412" y="663" text-anchor="middle">TanStack Start</text>
+  <rect class="pillblue" x="508" y="643" width="168" height="27" rx="13"/><text class="chip" x="592" y="663" text-anchor="middle">TanStack Router</text>
+  <rect class="pillblue" x="689" y="643" width="157" height="27" rx="13"/><text class="chip" x="768" y="663" text-anchor="middle">React Query</text>
+  <rect class="pillgray" x="859" y="643" width="79" height="27" rx="13"/><text class="chip" x="899" y="663" text-anchor="middle">Vite 7</text>
+  <rect class="pillgray" x="951" y="643" width="92" height="27" rx="13"/><text class="chip" x="997" y="663" text-anchor="middle">Nitro / H3</text>
+
+  <!-- step 3 -->
+  <circle cx="226" cy="754" r="34" fill="url(#purple)"/><text class="num" x="226" y="763" text-anchor="middle">3</text>
+  <rect class="step" filter="url(#shadow)" x="292" y="704" width="936" height="178" rx="20"/>
+  <text class="cardtitle" x="330" y="750">Se valida y se contiene antes de usar IA</text>
+  <text class="body" x="330" y="786">Se limita el cuerpo, se valida el formato y se identifica la IP. El guard de alcance rechaza código/tareas y aclara seguimientos ambiguos.</text>
+  <rect class="pillpurple" x="330" y="817" width="136" height="28" rx="14"/><text class="chip" x="398" y="838" text-anchor="middle">128 KB API</text>
+  <rect class="pillpurple" x="478" y="817" width="156" height="28" rx="14"/><text class="chip" x="556" y="838" text-anchor="middle">20 IP / 5 min</text>
+  <rect class="pillpurple" x="646" y="817" width="153" height="28" rx="14"/><text class="chip" x="723" y="838" text-anchor="middle">4 concurrentes</text>
+  <rect class="pillpurple" x="811" y="817" width="165" height="28" rx="14"/><text class="chip" x="893" y="838" text-anchor="middle">Scope guard</text>
+  <text class="tiny" x="330" y="866">CHAT_RESPONSE_MODE=static detiene embeddings, recuperación, generación y analítica; guarded es la ruta RAG normal.</text>
+
+  <!-- step 4 -->
+  <circle cx="226" cy="954" r="34" fill="url(#green)"/><text class="num" x="226" y="963" text-anchor="middle">4</text>
+  <rect class="step" filter="url(#shadow)" x="292" y="906" width="936" height="162" rx="20"/>
+  <text class="cardtitle" x="330" y="952">RAG: se transforma la consulta en una búsqueda semántica</text>
+  <text class="body" x="330" y="989">Embedding inicial → búsqueda con umbral 0,55. Si falta evidencia y hay modismos, se reescribe y vuelve a buscar.</text>
+  <rect class="pillgreen" x="330" y="1017" width="162" height="28" rx="14"/><text class="chip" x="411" y="1038" text-anchor="middle">query rewrite</text>
+  <rect class="pillgreen" x="505" y="1017" width="175" height="28" rx="14"/><text class="chip" x="592" y="1038" text-anchor="middle">embedding query</text>
+  <rect class="pillgreen" x="693" y="1017" width="130" height="28" rx="14"/><text class="chip" x="758" y="1038" text-anchor="middle">RPC SQL</text>
+  <rect class="pillgreen" x="836" y="1017" width="180" height="28" rx="14"/><text class="chip" x="926" y="1038" text-anchor="middle">re-rank 70/30</text>
+
+  <!-- step 5 -->
+  <circle cx="226" cy="1144" r="34" fill="url(#green)"/><text class="num" x="226" y="1153" text-anchor="middle">5</text>
+  <rect class="step" filter="url(#shadow)" x="292" y="1096" width="936" height="151" rx="20"/>
+  <text class="cardtitle" x="330" y="1142">Solo la evidencia utilizable llega al prompt institucional</text>
+  <text class="body" x="330" y="1178">Se normalizan URL/contenido, se eliminan duplicados y se conservan hasta 3 fragmentos de 1.200 caracteres. Sin documentos: abstención.</text>
+  <rect class="pillgreen" x="330" y="1208" width="178" height="27" rx="13"/><text class="chip" x="419" y="1228" text-anchor="middle">SYSTEM_PROMPT_EIT</text>
+  <rect class="pillgreen" x="520" y="1208" width="140" height="27" rx="13"/><text class="chip" x="590" y="1228" text-anchor="middle">3 fragmentos</text>
+  <rect class="pillgreen" x="672" y="1208" width="152" height="27" rx="13"/><text class="chip" x="748" y="1228" text-anchor="middle">avisos urgentes</text>
+  <rect class="pillgreen" x="837" y="1208" width="155" height="27" rx="13"/><text class="chip" x="914" y="1228" text-anchor="middle">fuentes / URLs</text>
+
+  <!-- step 6 -->
+  <circle cx="226" cy="1324" r="34" fill="url(#accent)"/><text class="num" x="226" y="1333" text-anchor="middle">6</text>
+  <rect class="step" filter="url(#shadow)" x="292" y="1276" width="936" height="155" rx="20"/>
+  <text class="cardtitle" x="330" y="1322">El proveedor genera y el servidor retiene la salida completa</text>
+  <text class="body" x="330" y="1358">La transmisión es interna: se detectan JSON inválido, truncamiento, exceso de 16.000 caracteres y respuestas con código antes de publicarlas.</text>
+  <rect class="pillred" x="330" y="1388" width="201" height="27" rx="13"/><text class="chip" x="430" y="1408" text-anchor="middle">stream interno SSE/NDJSON</text>
+  <rect class="pillred" x="544" y="1388" width="165" height="27" rx="13"/><text class="chip" x="626" y="1408" text-anchor="middle">output guard</text>
+  <rect class="pillred" x="722" y="1388" width="133" height="27" rx="13"/><text class="chip" x="788" y="1408" text-anchor="middle">máx. 16k</text>
+  <rect class="pillred" x="868" y="1388" width="130" height="27" rx="13"/><text class="chip" x="933" y="1408" text-anchor="middle">HTTP 502</text>
+
+  <!-- step 7 -->
+  <circle cx="226" cy="1506" r="34" fill="url(#blue)"/><text class="num" x="226" y="1515" text-anchor="middle">7</text>
+  <rect class="step" filter="url(#shadow)" x="292" y="1458" width="936" height="145" rx="20"/>
+  <text class="cardtitle" x="330" y="1504">Respuesta, fuentes y aprendizaje operacional</text>
+  <text class="body" x="330" y="1540">La UI renderiza la respuesta y sus fuentes. La pregunta se registra; la valoración del usuario viaja por los endpoints de feedback.</text>
+  <rect class="pillblue" x="330" y="1568" width="155" height="27" rx="13"/><text class="chip" x="407" y="1588" text-anchor="middle">ChatMessage</text>
+  <rect class="pillblue" x="498" y="1568" width="170" height="27" rx="13"/><text class="chip" x="583" y="1588" text-anchor="middle">/api/feedback</text>
+  <rect class="pillblue" x="681" y="1568" width="218" height="27" rx="13"/><text class="chip" x="790" y="1588" text-anchor="middle">/api/general-feedback</text>
+
+  <!-- vertical arrows -->
+  <path d="M226 472 V548 M226 632 V708 M226 794 V910 M226 994 V1100 M226 1184 V1280 M226 1364 V1462" fill="none" stroke="#6d8191" stroke-width="3" marker-end="url(#arrowGray)"/>
+
+  <!-- RAG Provider box -->
+  <text class="section" x="1330" y="300">MOTOR DE IA Y RECUPERACIÓN</text>
+  <rect class="card" filter="url(#shadow)" x="1300" y="331" width="1188" height="519" rx="23"/>
+  <text class="cardtitle" x="1340" y="379">Dos proveedores; un espacio vectorial por proveedor</text>
+  <text class="small" x="1340" y="410">AI_PROVIDER selecciona el modelo, embeddings, columna y RPC compatibles. No se mezclan vectores.</text>
+  <rect x="1340" y="442" width="532" height="327" rx="18" fill="#153034" stroke="#2cb990" stroke-width="2"/>
+  <circle cx="1384" cy="485" r="17" fill="#54e5ae"/><text class="label" x="1384" y="491" text-anchor="middle">A</text>
+  <text class="cardtitle" x="1417" y="494" font-size="26">Producción UDP · Ollama on-premise</text>
+  <text class="body" x="1375" y="539">Servidor GPU interno</text>
+  <rect class="pillgreen" x="1375" y="558" width="164" height="30" rx="15"/><text class="chip" x="1457" y="580" text-anchor="middle">Qwen 2.5 7B</text>
+  <rect class="pillgreen" x="1550" y="558" width="141" height="30" rx="15"/><text class="chip" x="1620" y="580" text-anchor="middle">BGE-M3</text>
+  <text class="body" x="1375" y="630">Embeddings: 1.024 dimensiones</text>
+  <text class="body" x="1375" y="664">Columna: embedding_1024</text>
+  <text class="body" x="1375" y="698">RPC: buscar_docs_v2</text>
+  <text class="tiny" x="1375" y="739">/api/generate · /api/embed</text>
+  <rect x="1912" y="442" width="532" height="327" rx="18" fill="#292342" stroke="#9e70f0" stroke-width="2"/>
+  <circle cx="1956" cy="485" r="17" fill="#ca85ff"/><text class="label" x="1956" y="491" text-anchor="middle">B</text>
+  <text class="cardtitle" x="1989" y="494" font-size="26">Demo Vercel · Google Gemini</text>
+  <text class="body" x="1947" y="539">Google Generative Language API</text>
+  <rect class="pillpurple" x="1947" y="558" width="188" height="30" rx="15"/><text class="chip" x="2041" y="580" text-anchor="middle">Gemini 2.5 Flash</text>
+  <rect class="pillpurple" x="2146" y="558" width="194" height="30" rx="15"/><text class="chip" x="2243" y="580" text-anchor="middle">text-embedding-004</text>
+  <text class="body" x="1947" y="630">Embeddings: 768 dimensiones</text>
+  <text class="body" x="1947" y="664">Columna: embedding</text>
+  <text class="body" x="1947" y="698">RPC: buscar_docs</text>
+  <text class="tiny" x="1947" y="739">streamGenerateContent · batchEmbedContents</text>
+  <path d="M1872 606 H1908" stroke="#7893a4" stroke-width="3" stroke-dasharray="7 7"/>
+  <text class="tiny" x="1889" y="642" text-anchor="middle">alternativa</text>
+  <rect class="note" x="1340" y="790" width="1104" height="38" rx="12"/><text class="small" x="1360" y="816">Guardrail: la dimensión, modelo, columna y función RPC deben coincidir; si no, el sistema no debe recuperar evidencia.</text>
+
+  <!-- database -->
+  <text class="section" x="1330" y="906">EVIDENCIA, DATOS Y ANALÍTICA</text>
+  <rect class="card" filter="url(#shadow)" x="1300" y="935" width="1188" height="294" rx="23"/>
+  <rect x="1338" y="973" width="259" height="207" rx="18" fill="#1c3450" stroke="#4e9fe5" stroke-width="2"/>
+  <text class="cardtitle" x="1468" y="1022" text-anchor="middle" font-size="28">Supabase</text>
+  <text class="body" x="1468" y="1056" text-anchor="middle">REST API + Service Role</text>
+  <text class="body" x="1468" y="1089" text-anchor="middle">PostgreSQL + pgvector</text>
+  <text class="small" x="1468" y="1133" text-anchor="middle">HNSW / distancia coseno</text>
+  <rect x="1630" y="973" width="242" height="207" rx="18" fill="#142832" stroke="#4c8298" stroke-width="2"/>
+  <text class="cardtitle" x="1751" y="1021" text-anchor="middle" font-size="25">Corpus RAG</text>
+  <text class="small" x="1751" y="1054" text-anchor="middle">eit_docs</text><text class="small" x="1751" y="1083" text-anchor="middle">URL · título · chunk</text><text class="small" x="1751" y="1112" text-anchor="middle">vector · modelo · batch_id</text>
+  <rect x="1904" y="973" width="242" height="207" rx="18" fill="#142832" stroke="#4c8298" stroke-width="2"/>
+  <text class="cardtitle" x="2025" y="1021" text-anchor="middle" font-size="25">Operación</text>
+  <text class="small" x="2025" y="1054" text-anchor="middle">preguntas_log</text><text class="small" x="2025" y="1083" text-anchor="middle">avisos_urgentes</text><text class="small" x="2025" y="1112" text-anchor="middle">feedback</text>
+  <rect x="2178" y="973" width="266" height="207" rx="18" fill="#142832" stroke="#4c8298" stroke-width="2"/>
+  <text class="cardtitle" x="2311" y="1021" text-anchor="middle" font-size="25">Satisfacción</text>
+  <text class="small" x="2311" y="1054" text-anchor="middle">satisfaction_feedback</text><text class="small" x="2311" y="1083" text-anchor="middle">panel /admin · Recharts</text><text class="small" x="2311" y="1112" text-anchor="middle">HMAC / cookie HttpOnly</text>
+
+  <!-- ingestion -->
+  <text class="section" x="1330" y="1283">CÓMO SE ALIMENTA EL CONOCIMIENTO</text>
+  <rect class="card" filter="url(#shadow)" x="1300" y="1313" width="1188" height="326" rx="23"/>
+  <text class="small" x="1340" y="1352">Ingesta manual: <tspan fill="#eaf6ff" font-weight="700">npm run scrape</tspan> · Ingesta programada: Vercel Cron → /api/cron-scrape a las 08:00, 6 páginas/día, rotación completa ≈ 8 días.</text>
+  <rect class="card2" x="1340" y="1390" width="232" height="180" rx="17"/>
+  <text class="cardtitle" x="1456" y="1432" text-anchor="middle" font-size="24">56 fuentes</text>
+  <text class="small" x="1456" y="1466" text-anchor="middle">eit.udp.cl</text><text class="small" x="1456" y="1492" text-anchor="middle">dae.udp.cl</text><text class="small" x="1456" y="1518" text-anchor="middle">UDP / Admisión</text>
+  <path d="M1574 1480 H1657" stroke="#51d5ff" stroke-width="3" marker-end="url(#arrowBlue)"/>
+  <rect class="card2" x="1674" y="1390" width="232" height="180" rx="17"/>
+  <text class="cardtitle" x="1790" y="1432" text-anchor="middle" font-size="24">Cheerio</text>
+  <text class="small" x="1790" y="1466" text-anchor="middle">fetch HTML</text><text class="small" x="1790" y="1492" text-anchor="middle">limpieza semántica</text><text class="small" x="1790" y="1518" text-anchor="middle">links/PDF detectados</text>
+  <path d="M1907 1480 H1990" stroke="#51d5ff" stroke-width="3" marker-end="url(#arrowBlue)"/>
+  <rect class="card2" x="2007" y="1390" width="232" height="180" rx="17"/>
+  <text class="cardtitle" x="2123" y="1432" text-anchor="middle" font-size="24">Chunking</text>
+  <text class="small" x="2123" y="1466" text-anchor="middle">párrafos/títulos</text><text class="small" x="2123" y="1492" text-anchor="middle">150 palabras</text><text class="small" x="2123" y="1518" text-anchor="middle">overlap 30</text>
+  <path d="M2240 1480 H2323" stroke="#51d5ff" stroke-width="3" marker-end="url(#arrowBlue)"/>
+  <rect class="note" x="2340" y="1390" width="106" height="180" rx="17"/>
+  <text class="cardtitle" x="2393" y="1432" text-anchor="middle" font-size="21">Vectores</text>
+  <text class="tiny" x="2393" y="1464" text-anchor="middle">batches</text><text class="tiny" x="2393" y="1488" text-anchor="middle">UUID</text><text class="tiny" x="2393" y="1512" text-anchor="middle">verifica</text><text class="tiny" x="2393" y="1536" text-anchor="middle">y reemplaza</text>
+  <text class="tiny" x="1340" y="1615">La inserción es versionada: Node.js crypto crea batch_id; solo borra la versión anterior cuando todos los chunks nuevos fueron insertados y verificados. Cron protegido con CRON_SECRET.</text>
+
+  <!-- operational stack -->
+  <text class="section" x="72" y="1682">OPERACIÓN, SEGURIDAD Y DESPLIEGUE</text>
+  <rect class="card" filter="url(#shadow)" x="72" y="1711" width="2416" height="125" rx="20"/>
+  <text class="cardtitle" x="108" y="1758" font-size="25">Código y verificación</text>
+  <text class="small" x="108" y="1794">Git · GitLab CI · Node 22 · npm ci · TypeScript typecheck · node:test · ESLint/Prettier · Vite build</text>
+  <line x1="830" y1="1735" x2="830" y2="1812" class="line"/>
+  <text class="cardtitle" x="870" y="1758" font-size="25">Producción institucional</text>
+  <text class="small" x="870" y="1794">GitLab deploy por SSH → Dokku → Procfile → Node/Nitro server → Ollama on-premise</text>
+  <line x1="1610" y1="1735" x2="1610" y2="1812" class="line"/>
+  <text class="cardtitle" x="1650" y="1758" font-size="25">Demo serverless</text>
+  <text class="small" x="1650" y="1794">Vercel rewrites + Functions api/*.js + Cron + CSP/HSTS/headers HTTP + Gemini opcional</text>
+</svg>

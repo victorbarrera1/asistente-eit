@@ -1,0 +1,37 @@
+---
+title: Diagrama de actividades — Ingesta incremental del corpus
+---
+flowchart TD
+  inicio([Timer diario 04:00]) --> pre[Verificar modelo de embeddings]
+  pre --> okpre{¿Responde con 1024 dims?}
+  okpre -- No --> abort([Abortar sin tocar el corpus])
+  okpre -- Sí --> sig[Tomar siguiente página de PAGES]
+
+  sig --> reg[Leer registro: hash, ETag, batch]
+  reg --> get[GET condicional If-None-Match]
+  get --> r304{¿HTTP 304?}
+  r304 -- Sí --> intacto1{¿Batch completo en eit_docs?}
+  intacto1 -- Sí --> sinc[Marcar revisada · sin cambios]
+  intacto1 -- No --> full[GET sin condicionales]
+  full --> limpiar
+  r304 -- No --> limpiar[Limpiar HTML: quitar menú, ocultos, comentarios]
+
+  limpiar --> hash[Calcular hash del texto + pipeline + modelo]
+  hash --> igual{¿Hash igual y batch completo?}
+  igual -- Sí --> sinc
+  igual -- No --> chunk[Dividir en fragmentos por encabezados]
+  chunk --> emb[Generar embeddings por lotes de 32]
+  emb --> ins[Insertar fragmentos con batch_id nuevo]
+  ins --> ver{¿Conteo insertado = fragmentos?}
+  ver -- No --> rb[Rollback del batch nuevo · versión anterior intacta]
+  rb --> err[Registrar página fallida]
+  ver -- Sí --> del[Borrar batches anteriores del mismo espacio vectorial]
+  del --> hist[Guardar registro, historial y snapshot HTML]
+
+  sinc --> mas{¿Quedan páginas?}
+  hist --> mas
+  err --> mas
+  mas -- Sí --> sig
+  mas -- No --> fin{¿Hubo fallas?}
+  fin -- Sí --> exit1([Salir con código 1 · systemd marca failed])
+  fin -- No --> exit0([Resumen: nuevas / actualizadas / sin cambios])

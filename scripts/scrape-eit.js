@@ -1,6 +1,10 @@
 /**
  * Scraper RAG — EIT UDP (ejecución manual)
- * Uso: npm run scrape
+ * Uso: npm run scrape            (incremental: solo re-embebe lo que cambió)
+ *      npm run scrape -- --force (re-ingiere todas las páginas)
+ *
+ * En producción lo ejecuta el timer systemd de la VM de ingesta
+ * (ver deploy/scraper/README.md), no el cron de Vercel.
  *
  * La lógica y la lista de páginas viven en api/_lib/scrape.js,
  * compartidas con el cron automático (api/cron-scrape.js).
@@ -38,12 +42,15 @@ async function main() {
     process.exit(1);
   }
 
-  console.log(`🚀 Scrapeando ${PAGES.length} páginas de EIT UDP...\n`);
+  const force = process.argv.includes("--force");
+  console.log(`🚀 Scrapeando ${PAGES.length} páginas de EIT UDP${force ? " (--force)" : ""}...\n`);
 
   const fallidas = [];
+  const conteo = { nueva: 0, actualizada: 0, sin_cambios: 0 };
   for (const page of PAGES) {
     try {
-      await scrapePage(page);
+      const { estado } = await scrapePage(page, { force });
+      conteo[estado]++;
     } catch (err) {
       console.error(`  ❌ Error en ${page.url}: ${err.message}`);
       fallidas.push({ url: page.url, error: err.message });
@@ -62,7 +69,10 @@ async function main() {
     process.exit(1);
   }
 
-  console.log(`\n✅ Pipeline RAG completado: ${PAGES.length}/${PAGES.length} páginas.`);
+  console.log(
+    `\n✅ Pipeline RAG completado: ${PAGES.length}/${PAGES.length} páginas ` +
+      `(${conteo.nueva} nuevas, ${conteo.actualizada} actualizadas, ${conteo.sin_cambios} sin cambios).`,
+  );
 }
 
 main();

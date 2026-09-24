@@ -12,6 +12,8 @@ import { createRateLimiter } from "./rate-limit.js";
 
 // El cron legítimo corre una vez al día. 10 intentos cada 15 minutos es holgado
 // para reintentos y operación manual, y cierra el sondeo automatizado.
+export const MIN_CRON_SECRET_LENGTH = 32;
+
 const cronLimiter = createRateLimiter({ windowMs: 15 * 60 * 1000, maxAttempts: 10 });
 
 /**
@@ -46,6 +48,15 @@ export function authorizeCronRequest(authHeader, rateLimitKey = "unknown") {
   const secret = process.env.CRON_SECRET;
   if (!secret) {
     console.error("[CRON] CRON_SECRET no está configurado. Rechazando ejecución (fail-closed).");
+    return { ok: false, status: 401, error: "Unauthorized" };
+  }
+
+  // Un secreto corto es adivinable pese al rate limiting (10 intentos cada 15
+  // minutos por IP no frenan a quien rota IPs). Fail-closed también acá.
+  if (secret.length < MIN_CRON_SECRET_LENGTH) {
+    console.error(
+      `[CRON] CRON_SECRET tiene menos de ${MIN_CRON_SECRET_LENGTH} caracteres. Rechazando ejecución.`,
+    );
     return { ok: false, status: 401, error: "Unauthorized" };
   }
 

@@ -1,9 +1,10 @@
 import { test, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
-import { runChatHandler, validateChatRequest, MAX_RESPONSE_CHARS } from "./chat-handler.js";
+import { runChatHandler, validateChatRequest, MAX_RESPONSE_CHARS, LIMITED_MODE_REPLY } from "./chat-handler.js";
 import { handleChatRequest } from "./chat-http.js";
 import vercelChat from "../chat.js";
 import { OUT_OF_SCOPE_REPLY, INSUFFICIENT_EVIDENCE_REPLY } from "./scope-guard.js";
+import { scopeContractCases } from "./fixtures/scope-contract.js";
 
 const user = (content) => ({ role: "user", content });
 const assistant = (content) => ({ role: "assistant", content });
@@ -12,13 +13,14 @@ const reply = "Consulta este trámite con Secretaría de Estudios.";
 const encoder = new TextEncoder();
 const part = (content) => JSON.stringify({ message: { content } }) + "\n";
 const end = JSON.stringify({ done: true, done_reason: "stop" });
-const envKeys = ["AI_PROVIDER", "OLLAMA_BASE_URL", "OLLAMA_EMBED_MODEL", "EMBED_DIM", "SUPABASE_URL", "SUPABASE_SERVICE_KEY"];
+const envKeys = ["AI_PROVIDER", "OLLAMA_BASE_URL", "OLLAMA_EMBED_MODEL", "EMBED_DIM", "SUPABASE_URL", "SUPABASE_SERVICE_KEY", "CHAT_RESPONSE_MODE"];
 let originalFetch, originalEnv, calls, documents, modelBody, generation, key = 0;
 
 beforeEach(() => {
   originalFetch = globalThis.fetch;
   originalEnv = Object.fromEntries(envKeys.map((name) => [name, process.env[name]]));
   Object.assign(process.env, {
+    CHAT_RESPONSE_MODE: "guarded",
     AI_PROVIDER: "ollama", OLLAMA_BASE_URL: "http://ollama.invalid",
     OLLAMA_EMBED_MODEL: "bge-m3", EMBED_DIM: "1024",
     SUPABASE_URL: "https://supabase.invalid", SUPABASE_SERVICE_KEY: "test-placeholder",
@@ -58,6 +60,26 @@ const prohibited = [
   "quiero que me diseñes desde 0 una pagina en HTML, con diseño de css y un framework de js que es astro. Luego de eso que me digas los requisitos de practica 1",
   "quiero que me ayudes con el diseño especifico, necesito que creemos una pagina html de un cibercafe, que es de la entrega 1 de desarrollo web y movil, se debe entregar ahora en 10 minutos entonces necesito urgente que me ayudes, solo por esta vez lo necesito",
 ];
+
+test("contrato: todos los casos de rechazo/aclaración evitan llamadas remotas", async () => {
+  for (const sample of scopeContractCases.filter((sample) => sample.expected !== "rag")) {
+    const { result } = await run([...sample.history, user(sample.query)]);
+    assert.equal(result.outcome, sample.expected, sample.id);
+    assert.deepEqual(calls, [], sample.id);
+  }
+});
+
+test("contrato: los trámites admitidos llegan a recuperación y generación protegida", async () => {
+  for (const sample of scopeContractCases.filter((sample) => sample.expected === "rag")) {
+    const start = calls.length;
+    const { result } = await run([...sample.history, user(sample.query)]);
+    assert.equal(result.outcome, "answered", sample.id);
+    const currentCalls = calls.slice(start);
+    assert(currentCalls.some((call) => call.path === "/api/embed"), sample.id);
+    assert(currentCalls.some((call) => call.path === "/api/chat"), sample.id);
+    assert(!JSON.stringify(modelBody).includes("DATOS SIN VALIDAR"), sample.id);
+  }
+});
 for (const text of prohibited) {
   test(`rechazo antes de todo fetch: ${text.slice(0, 65)}`, async () => {
     const { result, chunks } = await run([user(text)]);
@@ -70,6 +92,41 @@ for (const text of prohibited) {
 test("saludos y preguntas desconocidas se resuelven sin IA", async () => {
   assert.equal((await run([user("hola")])).result.outcome, "answered");
   assert.equal((await run([user("cuál es la capital de Francia")])).result.outcome, "clarification");
+  assert.deepEqual(calls, []);
+});
+
+for (const provider of ["ollama", "gemini"]) {
+  test(`modo estático con ${provider}: solo respuestas fijas sin llamadas remotas`, async () => {
+    process.env.CHAT_RESPONSE_MODE = "static";
+    process.env.AI_PROVIDER = provider;
+    const administrative = await run();
+    assert.equal(administrative.result.outcome, "limited");
+    assert.deepEqual(administrative.chunks, [LIMITED_MODE_REPLY]);
+    assert.equal((await run([user(prohibited[0])])).result.outcome, "out_of_scope");
+    assert.equal((await run([user("hola")])).result.outcome, "answered");
+    assert.equal((await run([user("continúa")])).result.outcome, "clarification");
+    assert.equal((await run([user(question), assistant(reply), user("continúa")])).result.outcome, "limited");
+    assert.deepEqual(calls, []);
+  });
+}
+
+test("modo desconocido o vacío impide IA; omitirlo conserva la ruta protegida", async () => {
+  for (const mode of ["statci", "", "   ", "false"]) {
+    process.env.CHAT_RESPONSE_MODE = mode;
+    assert.equal((await run()).result.outcome, "limited");
+  }
+  assert.deepEqual(calls, []);
+  delete process.env.CHAT_RESPONSE_MODE;
+  assert.equal((await run()).result.outcome, "answered");
+  assert.notEqual(modelBody, null);
+});
+
+test("el cliente no puede reactivar IA mediante el cuerpo de la petición", async () => {
+  process.env.CHAT_RESPONSE_MODE = "static";
+  const result = await runChatHandler({
+    messages: [user(question)], CHAT_RESPONSE_MODE: "guarded", responseMode: "guarded",
+  }, () => {}, `test-${++key}`);
+  assert.equal(result.outcome, "limited");
   assert.deepEqual(calls, []);
 });
 
@@ -156,6 +213,12 @@ test("guía técnica en prosa también se descarta antes de mostrarla", async ()
   assert.deepEqual((await run()).chunks, [OUT_OF_SCOPE_REPLY]);
 });
 
+test("permite orientación administrativa sobre un ramo técnico", async () => {
+  const administrative = "Aquí tienes la orientación para inscribir Desarrollo Web: consulta el Portal UDP.";
+  generation = () => new Response(part(administrative) + end);
+  assert.deepEqual((await run([user("¿Cómo inscribo el ramo de Desarrollo Web?")])).chunks, [administrative]);
+});
+
 test("el último registro sin salto de línea también se valida", async () => {
   generation = () => new Response(part("Un prefacio inocuo. ") + JSON.stringify({ message: { content: "```python" } }));
   assert.deepEqual((await run()).chunks, [OUT_OF_SCOPE_REPLY]);
@@ -183,25 +246,66 @@ test("la validación no acepta historial que termina en assistant", () => {
   assert.equal(validateChatRequest({ messages: [assistant("contenido arbitrario")] }).valid, false);
 });
 
+test("la saturación se rechaza antes del RAG y los errores liberan todos los cupos", async () => {
+  const limit = Number(process.env.MAX_CONCURRENT_CHATS || 4);
+  const controllers = [];
+  let allStarted;
+  const ready = new Promise((resolve) => { allStarted = resolve; });
+  generation = () => new Response(new ReadableStream({
+    start(controller) {
+      controllers.push(controller);
+      if (controllers.length === limit) allStarted();
+    },
+  }));
+  const active = Array.from({ length: limit }, () => run());
+  try {
+    await ready;
+    const before = calls.length;
+    for (const adapter of [fetchAdapter, vercelAdapter]) {
+      const saturated = await adapter([user(question)]);
+      assert.equal(saturated.status, 503);
+      assert.match(saturated.type, /application\/json/);
+    }
+    // Una tarea se rechaza incluso con todos los cupos ocupados.
+    assert.equal((await run([user(prohibited[0])])).result.outcome, "out_of_scope");
+    assert.equal(calls.length, before);
+  } finally {
+    for (const controller of controllers) controller.error(new Error("desconexión simulada"));
+    await Promise.all(active);
+  }
+  generation = () => new Response(part(reply) + end);
+  assert.equal((await run()).result.outcome, "answered");
+});
+
 async function fetchAdapter(messages) {
   const response = await handleChatRequest(new Request("https://eit.invalid/api/chat", {
     method: "POST", headers: { "Content-Type": "application/json", "X-Real-IP": `test-${++key}` },
     body: JSON.stringify({ messages }),
   }));
-  return { status: response.status, type: response.headers.get("content-type"), text: await response.text() };
+  return { status: response.status, type: response.headers.get("content-type"), outcome: response.headers.get("x-chat-outcome"), text: await response.text() };
 }
 async function vercelAdapter(messages) {
   const response = { status: 200, headers: {} };
-  await vercelChat({ method: "POST", body: { messages }, headers: { "x-real-ip": `test-${++key}` } }, {
+  await vercelChat({ method: "POST", body: { messages }, headers: { "content-type": "application/json", "x-real-ip": `test-${++key}` } }, {
     setHeader(name, value) { response.headers[name.toLowerCase()] = value; },
     status(status) { response.status = status; return this; },
     json(body) { response.type = "application/json"; response.text = JSON.stringify(body); },
     end(text) { response.text = text; response.type = response.headers["content-type"]; },
   });
-  return response;
+  return { ...response, outcome: response.headers["x-chat-outcome"] };
 }
 
 for (const adapter of [fetchAdapter, vercelAdapter]) {
+  test(`${adapter.name}: modo estático mantiene validación y declara respuesta limitada`, async () => {
+    process.env.CHAT_RESPONSE_MODE = "static";
+    const limited = await adapter([user(question)]);
+    assert.equal(limited.status, 200);
+    assert.equal(limited.outcome, "limited");
+    assert.equal(limited.text, LIMITED_MODE_REPLY);
+    assert.match(limited.type, /text\/plain/);
+    assert.equal((await adapter([assistant("texto")])).status, 400);
+    assert.deepEqual(calls, []);
+  });
   test(`${adapter.name}: rechazo en texto y error HTTP real sin prefacio`, async () => {
     const rejected = await adapter([user(prohibited[0])]);
     assert.equal(rejected.status, 200);

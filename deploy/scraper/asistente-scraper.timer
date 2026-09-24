@@ -1,0 +1,11 @@
+[Unit]
+Description=Asistente EIT UDP - scraping diario
+
+[Timer]
+# 04:00 hora de Chile: fuera del horario de uso del asistente.
+OnCalendar=*-*-* 04:00:00 America/Santiago
+RandomizedDelaySec=10min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

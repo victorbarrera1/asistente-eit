@@ -17,11 +17,11 @@ async function handleScrape(request: Request) {
   const offset = (day % totalBatches) * BATCH_SIZE;
   const batch = PAGES.slice(offset, offset + BATCH_SIZE);
 
-  const results: Array<{ url: string; chunks?: number; error?: string }> = [];
+  const results: Array<{ url: string; chunks?: number; estado?: string; error?: string }> = [];
   for (const page of batch) {
     try {
-      const chunks = await scrapePage(page);
-      results.push({ url: page.url, chunks });
+      const { chunks, estado } = await scrapePage(page);
+      results.push({ url: page.url, chunks, estado });
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       results.push({ url: page.url, error: msg });

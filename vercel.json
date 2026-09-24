@@ -23,14 +23,11 @@
         {
           "key": "Strict-Transport-Security",
           "value": "max-age=31536000; includeSubDomains"
-        }
+        },
+        { "key": "Content-Security-Policy", "value": "default-src 'none'; frame-ancestors 'none'" },
+        { "key": "X-Frame-Options", "value": "DENY" },
+        { "key": "Cross-Origin-Resource-Policy", "value": "same-site" }
       ]
-    }
-  ],
-  "crons": [
-    {
-      "path": "/api/cron-scrape",
-      "schedule": "0 8 * * *"
     }
   ],
   "functions": {

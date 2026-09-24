@@ -132,6 +132,7 @@ export async function runFeedbackHandler(body, rateLimitKey = "unknown") {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: formData.toString(),
+        signal: AbortSignal.timeout(5000),
       });
       if (!formRes.ok) {
         console.error(`[FEEDBACK] Error al enviar a Google Forms: HTTP ${formRes.status}`);

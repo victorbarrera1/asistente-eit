@@ -6,7 +6,16 @@
  */
 import { embedTexts, getAIConfig } from "./rag.js";
 import * as cheerio from "cheerio";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
+import { mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
+
+/**
+ * Versión del pipeline de limpieza + chunking. Entra en el hash de contenido:
+ * al cambiar stripHtml() o chunkText() hay que subirla para forzar que todas
+ * las páginas se re-ingieran aunque su HTML no haya cambiado.
+ */
+export const PIPELINE_VERSION = "strip-v1/chunk-150-30";
 
 // ─── Páginas a scrapear ───────────────────────────────────────────────────────
 export const PAGES = [
@@ -691,15 +700,32 @@ function supabaseHeaders() {
 }
 
 /**
- * Elimina todas las filas de una URL que NO pertenezcan al batch indicado.
- * Se usa para limpiar versiones anteriores una vez que el nuevo batch
- * quedó insertado y verificado por completo (nunca antes).
+ * Filtro PostgREST del espacio vectorial activo.
+ *
+ * El borrado de versiones anteriores filtraba solo por URL. Si el despliegue
+ * Ollama (Dokku) y la demo Gemini (Vercel) comparten la tabla, cada re-scrape de
+ * uno borraba las filas del otro para esa URL y lo dejaba sin evidencia.
+ * Las filas sin embedding_model son anteriores a la migración 003 y pertenecen
+ * al espacio de 768 dimensiones (Gemini).
  */
-async function deleteOldBatches(url, keepBatchId) {
-  const query = `url=eq.${encodeURIComponent(url)}&batch_id=neq.${encodeURIComponent(keepBatchId)}`;
+export function embeddingModelFilter(provider, embedModel) {
+  const model = encodeURIComponent(embedModel);
+  return provider === "gemini"
+    ? `or=(embedding_model.eq.${model},embedding_model.is.null)`
+    : `embedding_model=eq.${model}`;
+}
+
+/**
+ * Elimina las filas de una URL, dentro del espacio vectorial activo, que NO
+ * pertenezcan al batch indicado. Se usa para limpiar versiones anteriores una vez
+ * que el nuevo batch quedó insertado y verificado por completo (nunca antes).
+ */
+async function deleteOldBatches(url, keepBatchId, modelFilter) {
+  const query = `url=eq.${encodeURIComponent(url)}&batch_id=neq.${encodeURIComponent(keepBatchId)}&${modelFilter}`;
   const res = await fetch(`${process.env.SUPABASE_URL}/rest/v1/eit_docs?${query}`, {
     method: "DELETE",
     headers: supabaseHeaders(),
+    signal: AbortSignal.timeout(10000),
   });
   if (!res.ok) {
     throw new Error(`No se pudieron limpiar versiones antiguas: ${await res.text()}`);
@@ -713,6 +739,7 @@ async function deleteBatch(url, batchId) {
     await fetch(`${process.env.SUPABASE_URL}/rest/v1/eit_docs?${query}`, {
       method: "DELETE",
       headers: supabaseHeaders(),
+      signal: AbortSignal.timeout(10000),
     });
   } catch (e) {
     console.error(`[SCRAPE] Rollback de batch ${batchId} falló:`, e.message);
@@ -725,6 +752,7 @@ async function countBatchRows(url, batchId) {
   const res = await fetch(`${process.env.SUPABASE_URL}/rest/v1/eit_docs?${query}`, {
     method: "GET",
     headers: { ...supabaseHeaders(), Prefer: "count=exact" },
+    signal: AbortSignal.timeout(10000),
   });
   if (!res.ok) throw new Error(`No se pudo verificar el batch: ${await res.text()}`);
   const contentRange = res.headers.get("content-range"); // formato "0-4/5"
@@ -741,42 +769,161 @@ async function insertChunk(row) {
       Prefer: "return=minimal",
     },
     body: JSON.stringify(row),
+    signal: AbortSignal.timeout(10000),
   });
   if (!res.ok) {
     throw new Error(`Insert fallido: ${await res.text()}`);
   }
 }
 
-// ─── Scraping de una página con concurrencia controlada ────────────────────────
+// ─── Registro incremental (eit_paginas / eit_paginas_historial) ─────────────
+// Ver scripts/migrations/004_registro_paginas.sql. Si las tablas no existen el
+// scraper sigue funcionando en modo completo y lo avisa una sola vez.
+let registroDisponible = true;
+
+function registroNoExiste(status, body) {
+  return status === 404 || /PGRST205|42P01|does not exist|Could not find the table/i.test(body);
+}
+
+async function leerRegistro(url, embedModel, log) {
+  if (!registroDisponible) return null;
+  const query = `url=eq.${encodeURIComponent(url)}&embedding_model=eq.${encodeURIComponent(embedModel)}&select=*`;
+  try {
+    const res = await fetch(`${process.env.SUPABASE_URL}/rest/v1/eit_paginas?${query}`, {
+      headers: supabaseHeaders(),
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) {
+      const body = await res.text();
+      if (registroNoExiste(res.status, body)) {
+        registroDisponible = false;
+        log("  ℹ️ Sin tabla eit_paginas (migración 004): scraping completo, sin historial.");
+      }
+      return null;
+    }
+    const [row] = await res.json();
+    return row ?? null;
+  } catch {
+    return null; // Sin registro no hay atajo: se re-ingiere, que es lo seguro.
+  }
+}
+
+async function escribirRegistro(tabla, row, { upsert = false } = {}) {
+  if (!registroDisponible) return;
+  const suffix = upsert ? "?on_conflict=url,embedding_model" : "";
+  const res = await fetch(`${process.env.SUPABASE_URL}/rest/v1/${tabla}${suffix}`, {
+    method: "POST",
+    headers: {
+      ...supabaseHeaders(),
+      "Content-Type": "application/json",
+      Prefer: upsert ? "resolution=merge-duplicates,return=minimal" : "return=minimal",
+    },
+    body: JSON.stringify(row),
+    signal: AbortSignal.timeout(5000),
+  });
+  if (!res.ok) throw new Error(`${tabla}: ${(await res.text()).slice(0, 200)}`);
+}
+
+/** Actualiza solo metadatos de la última revisión (la página no cambió). */
+async function marcarRevisada(url, embedModel, cambios) {
+  if (!registroDisponible) return;
+  const query = `url=eq.${encodeURIComponent(url)}&embedding_model=eq.${encodeURIComponent(embedModel)}`;
+  await fetch(`${process.env.SUPABASE_URL}/rest/v1/eit_paginas?${query}`, {
+    method: "PATCH",
+    headers: { ...supabaseHeaders(), "Content-Type": "application/json", Prefer: "return=minimal" },
+    body: JSON.stringify({ checked_at: new Date().toISOString(), ...cambios }),
+    signal: AbortSignal.timeout(5000),
+  }).catch(() => {});
+}
+
+export function contentHash(text, embedModel) {
+  return createHash("sha256").update(`${PIPELINE_VERSION}\n${embedModel}\n${text}`).digest("hex");
+}
+
 /**
- * Ingesta versionada/atómica: los chunks nuevos se insertan bajo un `batch_id`
- * único (UUID). Solo si TODOS los chunks se insertan y la verificación de
- * integridad confirma el conteo esperado, se eliminan las versiones anteriores
- * de esa URL. Si algo falla a mitad de camino, se hace rollback del batch nuevo
- * y la versión anterior permanece intacta (nunca hay una ventana sin datos).
- *
- * Requiere la columna `batch_id` (uuid, indexada junto a `url`) en `eit_docs`.
- * Ver migración SQL sugerida en scripts/migrations/001_batch_id.sql.
+ * Guarda el HTML crudo de cada versión nueva en disco (VM de ingesta).
+ * Solo si SCRAPE_SNAPSHOT_DIR está definido: en Vercel el disco es efímero.
  */
-export async function scrapePage({ url, escuela, seccion, titulo }, { log = console.log } = {}) {
+async function guardarSnapshot(url, html, hash, log) {
+  const dir = process.env.SCRAPE_SNAPSHOT_DIR;
+  if (!dir) return;
+  try {
+    const { hostname, pathname } = new URL(url);
+    const seguro = pathname.replace(/[^a-zA-Z0-9/_-]/g, "_").replace(/\/+$/, "") || "/index";
+    const destino = path.join(dir, hostname, seguro);
+    await mkdir(destino, { recursive: true });
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+    await writeFile(path.join(destino, `${stamp}-${hash.slice(0, 12)}.html`), html);
+  } catch (e) {
+    log(`  ⚠️ No se pudo guardar el snapshot: ${e.message}`);
+  }
+}
+
+// ─── Scraping de una página ─────────────────────────────────────────────────
+/**
+ * Ingesta incremental, versionada y atómica de una URL.
+ *
+ * 1. Petición condicional (If-None-Match / If-Modified-Since): un 304 no
+ *    descarga ni procesa nada.
+ * 2. Si el texto limpio tiene el mismo hash que la última ingesta —y las filas
+ *    de ese batch siguen completas en eit_docs— no se re-embebe.
+ * 3. Si cambió, los chunks nuevos se insertan bajo un `batch_id` único. Solo si
+ *    TODOS se insertan y el conteo se verifica, se eliminan las versiones
+ *    anteriores de esa URL en el mismo espacio vectorial. Si algo falla, se
+ *    revierte el batch nuevo y la versión anterior queda intacta.
+ * 4. Se registra la versión en eit_paginas_historial (y en disco si hay
+ *    SCRAPE_SNAPSHOT_DIR).
+ *
+ * @returns {Promise<{chunks: number, estado: "nueva" | "actualizada" | "sin_cambios"}>}
+ */
+export async function scrapePage(
+  { url, escuela, seccion, titulo },
+  { log = console.log, force = false } = {},
+) {
   log(`📄 ${url}`);
 
-  const res = await fetch(url, {
-    headers: { "User-Agent": "EIT-Asistente-Bot/1.0 (scraper academico)" },
-    signal: AbortSignal.timeout(10000),
-  });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-  const text = stripHtml(await res.text(), url);
-  if (text.length < 100) throw new Error("Contenido muy corto");
-
-  const chunks = chunkText(text);
-  const batchId = randomUUID();
   // Identidad de embeddings ACTIVA. Antes se leía siempre `ollamaEmbedModel` y se
   // escribía siempre en `embedding_1024`, así que con AI_PROVIDER="gemini" el
   // scraper generaba vectores de 768 dims, los mandaba a una columna vector(1024)
   // —lo que Postgres rechaza— y además los etiquetaba como "bge-m3".
-  const { embedModel, embedColumn } = getAIConfig();
+  const { provider, embedModel, embedColumn } = getAIConfig();
+  const modelFilter = embeddingModelFilter(provider, embedModel);
+  const previo = force ? null : await leerRegistro(url, embedModel, log);
+
+  const requestHeaders = { "User-Agent": "EIT-Asistente-Bot/1.0 (scraper academico)" };
+  if (previo?.etag) requestHeaders["If-None-Match"] = previo.etag;
+  if (previo?.last_modified) requestHeaders["If-Modified-Since"] = previo.last_modified;
+
+  const res = await fetchInstitucional(url, requestHeaders);
+
+  // Un 304 solo es confiable si la versión registrada sigue completa en eit_docs.
+  if (res.status === 304 && previo && (await batchIntacto(url, previo))) {
+    await marcarRevisada(url, embedModel, {});
+    log(`  = sin cambios (304)`);
+    return { chunks: previo.chunks, estado: "sin_cambios" };
+  }
+  if (res.status === 304) {
+    // Registro presente pero filas perdidas: se repite sin condicionales.
+    return scrapePage({ url, escuela, seccion, titulo }, { log, force: true });
+  }
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+  const html = await res.text();
+  const text = stripHtml(html, url);
+  if (text.length < 100) throw new Error("Contenido muy corto");
+
+  const hash = contentHash(text, embedModel);
+  const etag = res.headers.get("etag");
+  const lastModified = res.headers.get("last-modified");
+
+  if (previo && previo.content_hash === hash && (await batchIntacto(url, previo))) {
+    await marcarRevisada(url, embedModel, { etag, last_modified: lastModified });
+    log(`  = sin cambios (hash)`);
+    return { chunks: previo.chunks, estado: "sin_cambios" };
+  }
+
+  const chunks = chunkText(text);
+  const batchId = randomUUID();
 
   // Vectorización por lotes contra /api/embed. Antes era un request por chunk con
   // 200ms de espera entre medio (necesario para no gatillar rate limits de la API
@@ -817,14 +964,97 @@ export async function scrapePage({ url, escuela, seccion, titulo }, { log = cons
     }
 
     // Solo ahora que el batch nuevo está completo y verificado, se eliminan
-    // las versiones anteriores de esta URL.
-    await deleteOldBatches(url, batchId);
+    // las versiones anteriores de esta URL (en este espacio vectorial).
+    await deleteOldBatches(url, batchId, modelFilter);
   } catch (e) {
     log(`  ⚠️ Ingesta fallida, revirtiendo batch nuevo: ${e.message}`);
     await deleteBatch(url, batchId);
     throw e;
   }
 
-  log(`  → ${chunks.length} chunks ✓`);
-  return chunks.length;
+  // El registro es auxiliar: si falla, la próxima ejecución simplemente re-ingiere.
+  const ahora = new Date().toISOString();
+  try {
+    await escribirRegistro(
+      "eit_paginas",
+      {
+        url,
+        embedding_model: embedModel,
+        content_hash: hash,
+        etag,
+        last_modified: lastModified,
+        chunks: chunks.length,
+        batch_id: batchId,
+        pipeline_version: PIPELINE_VERSION,
+        checked_at: ahora,
+        changed_at: ahora,
+      },
+      { upsert: true },
+    );
+    await escribirRegistro("eit_paginas_historial", {
+      url,
+      embedding_model: embedModel,
+      content_hash: hash,
+      contenido: text,
+      chunks: chunks.length,
+      batch_id: batchId,
+    });
+  } catch (e) {
+    log(`  ⚠️ No se pudo actualizar el registro incremental: ${e.message}`);
+  }
+  await guardarSnapshot(url, html, hash, log);
+
+  const estado = previo ? "actualizada" : "nueva";
+  log(`  → ${chunks.length} chunks ✓ (${estado})`);
+  return { chunks: chunks.length, estado };
+}
+
+/** Solo se scrapean y se siguen redirecciones hacia dominios de la universidad. */
+export function esHostInstitucional(url) {
+  try {
+    const { protocol, hostname, username, password } = new URL(url);
+    if (protocol !== "https:" && protocol !== "http:") return false;
+    if (username || password) return false;
+    return hostname === "udp.cl" || hostname.endsWith(".udp.cl");
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * fetch con redirecciones verificadas.
+ *
+ * `fetch` sigue redirecciones por defecto: si un sitio fuente fuera comprometido
+ * y respondiera `302 Location: http://localhost:11434/...` (o una IP de la red
+ * interna), el scraper haría esa petición desde leo o desde la VM de ingesta
+ * (SSRF). Cada salto se valida contra el dominio institucional.
+ */
+async function fetchInstitucional(url, headers, maxRedirects = 3) {
+  let actual = url;
+  for (let salto = 0; salto <= maxRedirects; salto++) {
+    if (!esHostInstitucional(actual)) {
+      throw new Error(`Destino fuera de *.udp.cl bloqueado: ${new URL(actual).host}`);
+    }
+    const res = await fetch(actual, {
+      headers,
+      redirect: "manual",
+      signal: AbortSignal.timeout(10000),
+    });
+    const location = res.headers.get("location");
+    if (res.status >= 300 && res.status < 400 && res.status !== 304 && location) {
+      actual = new URL(location, actual).toString();
+      continue;
+    }
+    return res;
+  }
+  throw new Error(`Demasiadas redirecciones desde ${url}`);
+}
+
+/** ¿Las filas del batch registrado siguen completas en eit_docs? */
+async function batchIntacto(url, registro) {
+  try {
+    return (await countBatchRows(url, registro.batch_id)) === registro.chunks;
+  } catch {
+    return false;
+  }
 }

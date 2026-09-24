@@ -1,0 +1,29 @@
+# Ingesta del corpus RAG (scraping incremental + embeddings).
+# Instalar según deploy/scraper/README.md.
+[Unit]
+Description=Asistente EIT UDP - scraping incremental del corpus
+Wants=network-online.target
+After=network-online.target ollama.service
+
+[Service]
+Type=oneshot
+User=asistente
+Group=asistente
+WorkingDirectory=/opt/asistente-eit
+Environment=SCRAPE_SNAPSHOT_DIR=/var/lib/asistente-eit/snapshots
+ExecStart=/usr/bin/node --env-file=.env scripts/scrape-eit.js
+TimeoutStartSec=45min
+Nice=10
+
+# Endurecimiento: el proceso solo puede escribir sus snapshots.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+ReadWritePaths=/var/lib/asistente-eit

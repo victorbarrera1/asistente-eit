@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 1080 1920" role="img" aria-labelledby="title desc">
+  <title id="title">Stack tecnológico Chatbot EIT UDP</title>
+  <desc id="desc">Versión Full HD vertical del stack tecnológico del chatbot EIT UDP.</desc>
+  <defs>
+    <linearGradient id="headline" x1="0" x2="1"><stop stop-color="#7b45f5"/><stop offset="1" stop-color="#9b59ff"/></linearGradient>
+    <style>
+      .title{font-family:Arial,Helvetica,sans-serif;font-size:40px;font-weight:800;fill:#fbfbfd}.tagTitle{font-family:Arial,Helvetica,sans-serif;font-size:32px;font-weight:800;fill:#fbfbfd}.cat{font-family:Arial,Helvetica,sans-serif;font-size:24px;font-weight:800;fill:#f5f5f7}.name{font-family:Arial,Helvetica,sans-serif;font-size:17px;font-weight:800;fill:#f5f5f7}.sub{font-family:Arial,Helvetica,sans-serif;font-size:11px;font-weight:700;fill:#a9a9b0}.footer{font-family:Arial,Helvetica,sans-serif;font-size:13px;font-weight:700;fill:#e8e8ec}.note{font-family:Arial,Helvetica,sans-serif;font-size:10px;font-weight:700;fill:#b8b8bf}.box{fill:#242428;stroke:#898990;stroke-width:2}.line{stroke:#898990;stroke-width:2}.tile{fill:#34343b;stroke:#474750;stroke-width:1}.icon{fill:none;stroke-linejoin:round;stroke-linecap:round}
+    </style>
+    <g id="monitor" class="icon" stroke="#42de54" stroke-width="9"><rect x="-31" y="-25" width="62" height="42" rx="5"/><path d="M0 17V35 M-23 35H23 M-21 3 L-5-12 L9 0 L21-10" stroke-width="6"/></g>
+    <g id="ragmark" class="icon" stroke="#a565ed" stroke-width="7"><circle cx="-21" cy="0" r="8" fill="#a565ed"/><circle cx="5" cy="-20" r="8" fill="#a565ed"/><circle cx="5" cy="20" r="8" fill="#a565ed"/><circle cx="28" cy="0" r="8" fill="#a565ed"/><path d="M-13 0H20 M0-13 L18-5 M0 13 L18 5"/></g>
+    <g id="server" class="icon" stroke="#48bdec" stroke-width="7"><rect x="-30" y="-23" width="60" height="20" rx="5"/><rect x="-30" y="5" width="60" height="20" rx="5"/><path d="M-19-13H-7 M-19 15H-7" stroke-width="4"/><circle cx="18" cy="-13" r="2" fill="#48bdec"/><circle cx="18" cy="15" r="2" fill="#48bdec"/></g>
+    <g id="db" class="icon" stroke="#ff934e" stroke-width="8"><ellipse cx="0" cy="-20" rx="28" ry="10"/><path d="M-28-20V17 C-28 32 56 32 56 17V-20 M-28-1 C-28 14 56 14 56-1"/><circle cx="18" cy="20" r="13" fill="#242428"/><path d="M28 30L41 43"/></g>
+    <g id="model" class="icon" stroke="#9e70f5" stroke-width="7"><circle cy="-22" r="8" fill="#9e70f5"/><circle cx="-25" cy="21" r="8" fill="#9e70f5"/><circle cx="25" cy="21" r="8" fill="#9e70f5"/><path d="M0-14V3 M-16 15L0 3L16 15"/></g>
+    <g id="bge"><path d="M0-28 L24-14 L24 14 L0 28 L-24 14 L-24-14Z" fill="#4ca8ee"/><path d="M0-14 L14-6 L14 10 L0 18 L-14 10 L-14-6Z" fill="#9de5ff"/></g>
+    <g id="rag"><path d="M0-27 L24-13 L24 13 L0 27 L-24 13 L-24-13Z" fill="none" stroke="#ededf3" stroke-width="5"/><path d="M-8-10 C-18 2-14 15 0 18 M8-10 C18 2 14 15 0 18 M0-11V16" fill="none" stroke="#ededf3" stroke-width="4"/></g>
+    <g id="chunk"><path d="M-24-23 H24 V23 H-24Z" fill="#f2c94c"/><path d="M-12-9H13 M-12 4H13 M-12 17H5" stroke="#242428" stroke-width="5"/></g>
+    <g id="nitro"><path d="M-27 25 L-9-29 L1 2 L12-29 L30 25Z" fill="#ff5c48"/><path d="M-17 21 L-7-14 L1 10 L11-14 L21 21Z" fill="#ffd45c"/></g>
+    <g id="api"><path d="M0-29 L26-14 L26 14 L0 29 L-26 14 L-26-14Z" fill="#66ad50"/><text x="0" y="7" text-anchor="middle" font-family="Arial" font-size="16" font-weight="800" fill="white">API</text></g>
+    <g id="security"><path d="M-20-26H20V26H-20Z" fill="#55b8e9"/><path d="M-9-9H10 M-9 2H10 M-9 13H4" stroke="#17242d" stroke-width="5"/></g>
+    <g id="pgvector"><circle cx="-20" cy="-16" r="6" fill="#5ce1a2"/><circle cx="-20" cy="16" r="6" fill="#5ce1a2"/><circle cx="17" cy="0" r="6" fill="#5ce1a2"/><path d="M-14-13L10-2 M-14 13L10 2" stroke="#5ce1a2" stroke-width="5"/><path d="M2-25H25V-4" fill="none" stroke="#e9fff4" stroke-width="4"/></g>
+    <g id="hnsw"><path d="M0-30 L27-14 L27 15 L0 31 L-27 15 L-27-14Z" fill="#408cc9"/><path d="M-27-14L0 2L27-14 M0 2V31" fill="none" stroke="#6eb8ee" stroke-width="3"/></g>
+    <g id="qwen"><circle r="29" fill="#685ae6"/><path d="M-7-18 C-30-2-17 23 4 20 C20 18 25 2 16-10" fill="none" stroke="white" stroke-width="7" stroke-linecap="round"/><path d="M9 11L27 28" stroke="white" stroke-width="7" stroke-linecap="round"/></g>
+  </defs>
+  <rect width="1080" height="1920" fill="#242428"/>
+  <rect width="1080" height="158" fill="#050505"/>
+  <rect x="16" y="31" width="21" height="77" rx="12" fill="#60ddb0"/>
+  <text class="title" x="52" y="100">Stack tecnológico</text>
+  <rect x="490" y="30" width="291" height="78" rx="7" fill="url(#headline)"/>
+  <text class="tagTitle" x="635" y="89" text-anchor="middle">Chatbot EIT UDP</text>
+
+  <!-- Frontend -->
+  <use href="#monitor" x="78" y="276"/><text class="cat" x="78" y="369" text-anchor="middle">Frontend</text><path class="line" d="M143 278H370"/>
+  <rect class="box" x="370" y="183" width="648" height="199" rx="10"/>
+  <g><rect class="tile" x="400" y="219" width="66" height="66" rx="11"/><image href="https://cdn.simpleicons.org/react/61DAFB" x="410" y="229" width="46" height="46"/><text class="name" x="433" y="320" text-anchor="middle">React</text></g>
+  <g><rect class="tile" x="493" y="219" width="66" height="66" rx="11"/><image href="https://cdn.simpleicons.org/tanstack/FF4154" x="503" y="229" width="46" height="46"/><text class="name" x="526" y="320" text-anchor="middle">TanStack</text></g>
+  <g><rect class="tile" x="586" y="219" width="66" height="66" rx="11"/><image href="https://cdn.simpleicons.org/vite/646CFF" x="596" y="229" width="46" height="46"/><text class="name" x="619" y="320" text-anchor="middle">Vite</text></g>
+  <g><rect class="tile" x="679" y="219" width="66" height="66" rx="11"/><image href="https://cdn.simpleicons.org/tailwindcss/06B6D4" x="689" y="229" width="46" height="46"/><text class="name" x="712" y="320" text-anchor="middle">Tailwind</text></g>
+  <g><rect class="tile" x="772" y="219" width="66" height="66" rx="11"/><image href="https://cdn.simpleicons.org/typescript/3178C6" x="782" y="229" width="46" height="46"/><text class="name" x="805" y="320" text-anchor="middle">TypeScript</text></g>
+  <g><rect class="tile" x="865" y="219" width="66" height="66" rx="11" fill="#f2de49"/><text x="898" y="266" text-anchor="middle" font-family="Arial" font-size="30" font-weight="800" fill="#242428">JS</text><text class="name" x="898" y="320" text-anchor="middle">JavaScript</text></g>
+
+  <!-- RAG -->
+  <use href="#ragmark" x="78" y="600"/><text class="cat" x="78" y="687" text-anchor="middle">Embeddings</text><text class="cat" x="78" y="716" text-anchor="middle">y RAG</text><path class="line" d="M143 603H370"/>
+  <rect class="box" x="370" y="511" width="648" height="212" rx="10"/>
+  <g><rect class="tile" x="488" y="539" width="66" height="66" rx="11"/><use href="#bge" x="521" y="572"/><text class="name" x="521" y="647" text-anchor="middle">BGE-M3</text><text class="sub" x="521" y="668" text-anchor="middle">embeddings principales</text></g>
+  <g><rect class="tile" x="612" y="539" width="66" height="66" rx="11"/><use href="#rag" x="645" y="572"/><text class="name" x="645" y="647" text-anchor="middle">RAG propio</text><text class="sub" x="645" y="668" text-anchor="middle">re-rank + contexto</text></g>
+  <g><rect class="tile" x="736" y="539" width="66" height="66" rx="11"/><image href="https://cdn.simpleicons.org/cheerio/E88C30" x="746" y="549" width="46" height="46"/><text class="name" x="769" y="647" text-anchor="middle">Cheerio</text><text class="sub" x="769" y="668" text-anchor="middle">scraping HTML</text></g>
+  <g><rect class="tile" x="860" y="539" width="66" height="66" rx="11"/><use href="#chunk" x="893" y="572"/><text class="name" x="893" y="647" text-anchor="middle">Chunks</text><text class="sub" x="893" y="668" text-anchor="middle">semánticos</text></g>
+
+  <!-- Backend -->
+  <use href="#server" x="78" y="915"/><text class="cat" x="78" y="1002" text-anchor="middle">Backend y</text><text class="cat" x="78" y="1031" text-anchor="middle">acceso a IA</text><path class="line" d="M143 918H370"/>
+  <rect class="box" x="370" y="799" width="648" height="215" rx="10"/>
+  <g><rect class="tile" x="423" y="835" width="66" height="66" rx="11"/><image href="https://cdn.simpleicons.org/nodedotjs/5FA04E" x="433" y="845" width="46" height="46"/><text class="name" x="456" y="941" text-anchor="middle">Node.js</text></g>
+  <g><use href="#nitro" x="576" y="868"/><text class="name" x="576" y="941" text-anchor="middle">Nitro / H3</text></g>
+  <g><rect class="tile" x="675" y="835" width="66" height="66" rx="11"/><image href="https://cdn.simpleicons.org/vercel/000000" x="685" y="845" width="46" height="46"/><text class="name" x="708" y="941" text-anchor="middle">Vercel</text></g>
+  <g><use href="#api" x="821" y="868"/><text class="name" x="821" y="941" text-anchor="middle">Routes</text></g>
+  <g><use href="#security" x="929" y="868"/><text class="name" x="929" y="941" text-anchor="middle">Seguridad</text></g>
+
+  <!-- Database -->
+  <use href="#db" x="78" y="1232"/><text class="cat" x="78" y="1321" text-anchor="middle">Base de</text><text class="cat" x="78" y="1350" text-anchor="middle">datos</text><path class="line" d="M143 1235H370"/>
+  <rect class="box" x="370" y="1121" width="648" height="210" rx="10"/>
+  <g><rect class="tile" x="449" y="1154" width="68" height="68" rx="11"/><image href="https://cdn.simpleicons.org/supabase/3ECF8E" x="459" y="1164" width="48" height="48"/><text class="name" x="483" y="1259" text-anchor="middle">Supabase</text></g>
+  <g><rect class="tile" x="617" y="1154" width="68" height="68" rx="11"/><image href="https://cdn.simpleicons.org/postgresql/4169E1" x="627" y="1164" width="48" height="48"/><text class="name" x="651" y="1259" text-anchor="middle">PostgreSQL</text></g>
+  <g><use href="#pgvector" x="793" y="1188"/><text class="name" x="793" y="1259" text-anchor="middle">pgvector</text></g>
+  <g><use href="#hnsw" x="920" y="1188"/><text class="name" x="920" y="1259" text-anchor="middle">HNSW</text></g>
+
+  <!-- Models -->
+  <use href="#model" x="78" y="1544"/><text class="cat" x="78" y="1630" text-anchor="middle">Modelos de</text><text class="cat" x="78" y="1659" text-anchor="middle">lenguaje</text><path class="line" d="M143 1547H370"/>
+  <rect class="box" x="370" y="1438" width="648" height="210" rx="10"/>
+  <g><rect class="tile" x="511" y="1469" width="68" height="68" rx="11"/><image href="https://cdn.simpleicons.org/ollama/FFFFFF" x="521" y="1479" width="48" height="48"/><text class="name" x="545" y="1575" text-anchor="middle">Ollama</text><text class="sub" x="545" y="1596" text-anchor="middle">on-premise</text></g>
+  <g><rect class="tile" x="660" y="1469" width="68" height="68" rx="11"/><use href="#qwen" x="694" y="1503"/><text class="name" x="694" y="1575" text-anchor="middle">Qwen 2.5</text><text class="sub" x="694" y="1596" text-anchor="middle">7B · producción</text></g>
+  <g><rect class="tile" x="809" y="1469" width="68" height="68" rx="11"/><image href="https://cdn.simpleicons.org/googlegemini/8AB4F8" x="819" y="1479" width="48" height="48"/><text class="name" x="843" y="1575" text-anchor="middle">Gemini 2.5</text><text class="sub" x="843" y="1596" text-anchor="middle">Flash · demo</text></g>
+
+  <rect y="1770" width="1080" height="150" fill="#050505"/>
+  <text class="footer" x="540" y="1827" text-anchor="middle">Producción: Ollama + Qwen 2.5 + BGE-M3 · Demo: Vercel + Gemini</text>
+  <text class="note" x="540" y="1867" text-anchor="middle">El stack mostrado corresponde al código actual del Asistente EIT UDP.</text>
+</svg>
